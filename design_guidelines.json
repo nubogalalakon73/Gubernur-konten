@@ -1,0 +1,105 @@
+{
+  "theme": "dark",
+  "archetype": "5 (Jewel & Luxury) and 4 (Swiss & High-Contrast)",
+  "vibe": "Netflix political documentary + elite investigative journalism + cinematic intellectual landing page",
+  "typography": {
+    "headings": {
+      "family": "Playfair Display",
+      "weights": ["400", "600", "700", "900"],
+      "styling": "tracking-tight, elegant, cinematic. Strongly encourage mixing normal and italic styles within the same headline to emphasize key political or digital terms.",
+      "h1_max_size": "text-5xl sm:text-6xl lg:text-7xl",
+      "usage": "Use Playfair Display for all major headings, blockquotes, and cinematic section titles. Do not use Inter for headings."
+    },
+    "body": {
+      "family": "Inter",
+      "weights": ["300", "400", "500", "600"],
+      "styling": "clean, geometric, leading-relaxed",
+      "usage": "Use Inter for body copy, UI elements, data points, form inputs, and small labels to provide maximum readability against the stylized headings."
+    },
+    "accents": {
+      "family": "Inter",
+      "styling": "uppercase, tracking-[0.2em], text-xs to text-sm font-bold",
+      "usage": "Use for overlines, badges (e.g., 'BEST SELLER'), and micro-copy."
+    }
+  },
+  "colors": {
+    "background": {
+      "primary": "#0B0F14",
+      "secondary": "#131A22",
+      "glass": "rgba(11, 15, 20, 0.7)"
+    },
+    "text": {
+      "primary": "#F4F0E8",
+      "secondary": "rgba(244, 240, 232, 0.7)",
+      "muted": "rgba(244, 240, 232, 0.5)",
+      "inverse": "#0B0F14"
+    },
+    "brand": {
+      "primary": "#B8211A",
+      "primary_hover": "#8A1713",
+      "accent": "#C9920A",
+      "accent_hover": "#A67808",
+      "glow_red": "rgba(184, 33, 26, 0.5)",
+      "glow_gold": "rgba(201, 146, 10, 0.5)"
+    },
+    "borders": {
+      "subtle": "rgba(244, 240, 232, 0.1)",
+      "highlight": "rgba(184, 33, 26, 0.3)"
+    }
+  },
+  "spacing_and_layout": {
+    "general": "Use generous padding (p-12 to p-32) for section breathing room. Negative space is essential for the premium 'documentary' feel.",
+    "bento_grids": "Use asymmetrical Tetris Grids for the Audiences section. Break symmetry.",
+    "alignment": "Center-align hero and large cinematic quotes. Left-align dense copy, timelines, and forms.",
+    "mobile_first": "Ensure all grids collapse to single columns on mobile. Font sizes scale gracefully using clamp() or responsive utility classes."
+  },
+  "surface_strategies": {
+    "navbar": "Crystal Glass. backdrop-blur-xl bg-[#0B0F14]/80, border-b border-white/10. Sticky to top.",
+    "cards": "Dark elegant surfaces. bg-[#131A22] border border-white/5. On hover, apply subtle transforms and a faint red or gold box-shadow glow.",
+    "pricing_cards": "Use 'The Tracing Beam' or a glowing border concept. The 'Premium Bundle' should have a prominent #B8211A or #C9920A glow to signify 'Paling Diminati'."
+  },
+  "animation_and_motion": {
+    "scrolling": "Lenis smooth scroll is MANDATORY. Creates momentum and premium cinematic feel.",
+    "reveals": "Framer motion for scroll-triggered fade-ups, staggering lists (e.g., timeline chapters), and parallax backgrounds.",
+    "interactions": "Smooth transitions on buttons, subtle glow effects on card hover, animated counters for statistics."
+  },
+  "components": {
+    "ui_library": "shadcn/ui heavily customized to match the dark cinematic theme. Do not leave the default Vercel aesthetic.",
+    "specific_usage": {
+      "accordion": "Use for FAQ and 'Apa yang Akan Anda Temukan?' (7 Bab). Redesign to look like editorial index/timeline.",
+      "cards": "Use for Testimonials, Pricing, and Audiences.",
+      "forms": "Use for Lead/Preorder form. Dark inputs (bg-black/20) with white text, red focus rings.",
+      "icons": "lucide-react. Keep stroke widths delicate (1.5) for a sophisticated look."
+    }
+  },
+  "media_and_images": {
+    "product_covers": {
+      "front": "https://customer-assets.emergentagent.com/job_f5c74294-4192-43ad-b4da-a1bc0dd721ea/artifacts/0rb0jb7v_ChatGPT%20Image%2030%20Apr%202026%2C%2013.14.39.png",
+      "back": "https://customer-assets.emergentagent.com/job_f5c74294-4192-43ad-b4da-a1bc0dd721ea/artifacts/pl57yf9e_ChatGPT%20Image%2030%20Apr%202026%2C%2013.29.01.png"
+    },
+    "textures_and_backgrounds": [
+      {
+        "url": "https://images.pexels.com/photos/18599094/pexels-photo-18599094.jpeg",
+        "category": "background_texture",
+        "description": "Grainy black and white abstract texture. Use with low opacity and multiply/overlay blend modes for cinematic noise."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1759910093262-bbaca38e4694?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxkYXJrJTIwcG9saXRpY2FsJTIwYXJjaGl0ZWN0dXJlJTIwc2hhZG93fGVufDB8fHx8MTc3ODYwMTY3MHww&ixlib=rb-4.1.0&q=85",
+        "category": "hero_background",
+        "description": "Dark political architecture shadow. Use heavily tinted with #0B0F14 (opacity < 30%) as an atmospheric hero/quote background."
+      }
+    ]
+  },
+  "section_specific_instructions": {
+    "hero": "Headlines 'Ketika Algoritma Menjadi Alun-Alun Kekuasaan' using Playfair Display, italicizing 'Algoritma'. Show 3D mockup of the ebook using the front cover. Include badges 'BEST SELLER POLITICAL ANALYSIS 2026', dual CTAs.",
+    "viral_stats": "Political dashboard aesthetic. Use animated counters: '95,5% Kepuasan Publik' VS '3,55 Juta Penduduk Miskin'. Heavy bold font for numbers, accented in red/gold.",
+    "timeline": "Cinematic timeline for the 7 chapters. Use accordion to expand content. Left border should act as a glowing timeline track.",
+    "audiences": "Grid layout for 8 categories. Clean lucide icons, dark cards, smooth hover effects.",
+    "editorial_quote": "Massive Playfair Display blockquote over the dark political architecture image. High contrast, Financial Times/TIME vibe.",
+    "ai_assistant": "Futuristic WhatsApp chat mockup with dark transparent bubbles. Neon green/red subtle accents.",
+    "lead_form": "Sleek form. Submit button in #B8211A. Will be connected to MongoDB. Ensure data-testid on all inputs.",
+    "urgency": "Red-themed urgency section with a digital countdown. 'Di era politik algoritma, siapa yang menguasai konten, menguasai persepsi.'",
+    "admin": "Simple internal dashboard at /admin for viewing leads. Clean table, high readability."
+  },
+  "testing": "CRITICAL: All interactive and key informational elements MUST include a 'data-testid' attribute (e.g., data-testid='hero-cta-button', data-testid='lead-form-submit')."
+}
