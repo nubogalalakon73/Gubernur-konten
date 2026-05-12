@@ -12,7 +12,6 @@ import LeadForm from "@/components/LeadForm";
 import FAQ from "@/components/FAQ";
 import Urgency from "@/components/Urgency";
 import Footer from "@/components/Footer";
-import FloatingWA from "@/components/FloatingWA";
 
 export default function Landing() {
   return (
@@ -33,7 +32,6 @@ export default function Landing() {
         <Urgency />
       </main>
       <Footer />
-      <FloatingWA />
     </div>
   );
 }

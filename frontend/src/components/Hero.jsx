@@ -1,4 +1,5 @@
-import { ArrowRight, MessageCircle, Star, Download, Users } from "lucide-react";
+import { ArrowRight, MessageCircle, Star, Download, Users, BookOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 import { COVER_FRONT, COVER_BACK, WA_LINK, trackCta, API } from "@/lib/api";
 import { useReveal } from "@/lib/useReveal";
 import { useEffect, useState } from "react";
@@ -65,6 +66,15 @@ export default function Hero() {
                 Beli Ebook Sekarang
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" strokeWidth={2} />
               </button>
+              <Link
+                to="/bab1"
+                onClick={() => trackCta("hero-bab1", "hero")}
+                data-testid="hero-cta-bab1"
+                className="btn-gold"
+              >
+                <BookOpen className="w-4 h-4" strokeWidth={1.7} />
+                Baca Bab 1 Gratis
+              </Link>
               <a
                 href={WA_LINK("Halo, saya tertarik dengan ebook Gubernur Konten. Mohon info pembelian.")}
                 target="_blank"
@@ -74,7 +84,7 @@ export default function Hero() {
                 className="btn-ghost"
               >
                 <MessageCircle className="w-4 h-4" strokeWidth={1.7} />
-                Konsultasi WhatsApp AI
+                Konsultasi WhatsApp
               </a>
             </div>
 

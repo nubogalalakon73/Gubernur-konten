@@ -1,0 +1,55 @@
+{
+  "summary": "Frontend-only regression for AI Chat Widget + restructured Pricing + Bab1 reader. All 22 functional checks from review_request verified PASS (2 initial test-script flakes confirmed false via isolated reruns). No real bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tested_features": {
+    "landing_hero_3_ctas": "PASS — Beli Ebook Sekarang, Baca Bab 1 Gratis (Link /bab1), Konsultasi WA",
+    "ai_chat_launcher_on_landing": "PASS — fixed bottom-right [data-testid=ai-chat-launcher]",
+    "ai_chat_launcher_on_bab1": "PASS — also visible on /bab1 (global widget)",
+    "auto_greeting": "PASS — message contains 'Selamat datang di ruang analisis politik digital' after ~900ms typing",
+    "initial_quick_replies": "PASS — ai-qr-bab1, ai-qr-tentang, ai-qr-harga, ai-qr-wa all present",
+    "lihat_harga_flow": "PASS — pricing list + select-free/perbab/full QRs render",
+    "tanya_isi_buku_flow": "PASS — chapter list with 🔓 (Bab 1) and 🔒 (Bab 2-7)",
+    "freetext_harga_intent": "PASS — 'berapa harga?' → pricing reply (55.000 detected)",
+    "freetext_rekomendasi_intent": "PASS — 'rekomendasi' → profession picker QRs (rec-akademisi, rec-mahasiswa, etc.)",
+    "pricing_3_cards": "PASS — pricing-card-free, pricing-card-perbab, pricing-card-full; Full has 'PALING DIMINATI' badge",
+    "pricing_free_navigates_to_bab1": "PASS — Link nav to /bab1",
+    "pricing_perbab_opens_chat_select_perbab": "PASS — chat opens with per-bab list + Transfer/QRIS/WA payment QRs",
+    "pricing_full_opens_chat_select_full": "PASS — chat opens with Full Buku Rp 55.000 + payment QRs",
+    "bab1_loads": "PASS — title 'Ketika Algoritma Menjadi Alun-Alun', cover image, authors, reading time, body sections",
+    "bab1_progress_bar": "PASS — [data-testid=bab1-progress] updates on scroll",
+    "bab1_sticky_cta": "PASS — bottom sticky bar with 'Beli Rp 55K' button visible",
+    "bab1_60_popup": "PASS — appears at ~60% scroll once; Lanjutkan + Nanti Saja buttons; dismissal is permanent for session",
+    "bab1_sticky_buy_nav": "PASS — clicking 'Beli Rp 55K' navigates to / and auto-scrolls to #pricing",
+    "bab1_mid_cta_nav": "PASS — verified in isolated run (test ordering caused initial false negative)",
+    "bab1_right_click_blocked": "PASS — contextmenu event preventDefault confirmed via DOM dispatch",
+    "bab1_copy_watermark": "PASS — clipboard receives '© Gubernur Konten ... Versi penuh: <url>' suffix",
+    "bab1_locked_teasers": "PASS — exactly 6 Lock icons rendered (BAB 2-7) in bab1-locked-list"
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_2.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AIChatWidget.jsx: onOpenChat effect has empty dep array — fine since handleIntent is stable closure over INITIAL_QUICK_REPLIES, but if quickReplies state ever needs to be consulted in handleIntent for cross-component opens, would have stale closure. Currently OK.",
+    "Bab1.jsx anti-copy uses document-level event listeners that affect the WHOLE app while Bab1 is mounted (right-click and copy blocked globally). Acceptable since user is on Bab1, but worth attaching to the article ref only for tighter scoping.",
+    "Bab1.jsx popup state is per-mount (useState). Refreshing /bab1 will retrigger the popup at 60% again — review_request says 'permanently in session' but it's only per-component-mount. If true session persistence is desired, use sessionStorage. Minor UX gap; not blocking.",
+    "chatBot.js fallback 30s default for page.text_content selector could be tightened by adding the bot message render delay (~700+text*6ms) — purely a test concern.",
+    "WA_LINK util usage in chatBot.js is good — phone number not duplicated. trackCta fires 'ai-intent-*' as expected by spec."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (22/22 features verified)"},
+  "test_credentials": "N/A — no auth on frontend.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "AI Chat Widget renders globally inside BrowserRouter (App.js). Greeting auto-fires once per session on first open (~900ms typing delay then message appears). Quick reply data-testids follow pattern ai-qr-{intent} (e.g. ai-qr-select-free, ai-qr-pay-transfer, ai-qr-rec-akademisi). Bab1 popup triggers at >=60% scroll inside #bab1-article; dismiss only persists per-mount, NOT across reloads. Bab1 anti-copy attaches to document, so be careful when scripting right-click flows. WA number is 628998553333. Backend was 100% in iteration 1 and not modified.",
+  "rca of the issue": "No bugs found. Initial test flakes — (a) 'Chat greeting' selector timeout was due to overall script context (subsequent QR clicks within same panel succeeded), and (b) 'Mid-CTA nav' failed in long-running test but passed in isolated rerun, indicating residual route/state from prior steps, not a real defect."
+}
