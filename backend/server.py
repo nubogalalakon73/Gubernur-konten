@@ -9,9 +9,12 @@ import io
 import csv
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone
+
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+from chat_prompt import SYSTEM_PROMPT
 
 
 ROOT_DIR = Path(__file__).parent
@@ -143,6 +146,81 @@ async def track_cta(payload: CtaEventCreate):
     ev = CtaEvent(**payload.model_dump())
     await db.cta_events.insert_one(ev.model_dump())
     return ev
+
+
+# ---------- Chat ----------
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
+class ChatRequest(BaseModel):
+    session_id: Optional[str] = None
+    message: str
+    history: Optional[List[ChatMessage]] = []
+
+
+class ChatResponse(BaseModel):
+    session_id: str
+    response: str
+
+
+def _build_system_with_history(history: List[ChatMessage]) -> str:
+    if not history:
+        return SYSTEM_PROMPT
+    recent = history[-8:]
+    convo_lines = []
+    for m in recent:
+        prefix = "Pembaca" if m.role == "user" else "Asisten"
+        convo_lines.append(f"{prefix}: {m.text}")
+    convo = "\n".join(convo_lines)
+    return f"{SYSTEM_PROMPT}\n\n## Riwayat Percakapan Saat Ini (sebagai konteks)\n{convo}\n\n## Instruksi\nLanjutkan percakapan sebagai Asisten. Jawab pesan terbaru dari Pembaca dengan ringkas dan akurat."
+
+
+@api_router.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(payload: ChatRequest):
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+
+    session_id = payload.session_id or str(uuid.uuid4())
+    system = _build_system_with_history(payload.history or [])
+
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system,
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+
+        user_msg = UserMessage(text=payload.message)
+        reply = await chat.send_message(user_msg)
+        reply_text = reply if isinstance(reply, str) else str(reply)
+    except Exception as e:
+        logger.exception("LLM chat error")
+        raise HTTPException(status_code=502, detail=f"Chat backend error: {str(e)[:200]}")
+
+    # Persist
+    now = datetime.now(timezone.utc).isoformat()
+    await db.chat_messages.insert_many([
+        {"id": str(uuid.uuid4()), "session_id": session_id, "role": "user", "text": payload.message, "created_at": now},
+        {"id": str(uuid.uuid4()), "session_id": session_id, "role": "assistant", "text": reply_text, "created_at": now},
+    ])
+
+    return ChatResponse(session_id=session_id, response=reply_text)
+
+
+@api_router.get("/chat/sessions")
+async def chat_sessions(limit: int = 200):
+    """Admin: list latest chat sessions with sample message."""
+    pipeline = [
+        {"$sort": {"created_at": -1}},
+        {"$group": {"_id": "$session_id", "last": {"$first": "$text"}, "last_at": {"$first": "$created_at"}, "count": {"$sum": 1}}},
+        {"$sort": {"last_at": -1}},
+        {"$limit": limit},
+    ]
+    items = await db.chat_messages.aggregate(pipeline).to_list(length=limit)
+    return [{"session_id": x["_id"], "last_message": x["last"], "last_at": x["last_at"], "count": x["count"]} for x in items]
 
 
 app.include_router(api_router)

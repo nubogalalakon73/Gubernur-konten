@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import axios from "axios";
 import { greeting, intentOf, respond, INITIAL_QUICK_REPLIES } from "@/lib/chatBot";
 import { onOpenChat } from "@/lib/chatEvents";
-import { trackCta } from "@/lib/api";
+import { trackCta, API } from "@/lib/api";
+
+const SESSION_KEY = "gk_chat_session_id";
 
 export default function AIChatWidget() {
   const [open, setOpen] = useState(false);
@@ -13,6 +16,9 @@ export default function AIChatWidget() {
   const [typing, setTyping] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const [pulse, setPulse] = useState(true);
+  const [sessionId, setSessionId] = useState(() => {
+    try { return localStorage.getItem(SESSION_KEY) || ""; } catch { return ""; }
+  });
   const scrollRef = useRef(null);
   const navigate = useNavigate();
 
@@ -84,13 +90,73 @@ export default function AIChatWidget() {
     }
   };
 
+  const persistSession = (sid) => {
+    if (!sid) return;
+    setSessionId(sid);
+    try { localStorage.setItem(SESSION_KEY, sid); } catch {}
+  };
+
+  // Call the LLM backend for free-text messages.
+  const callLlm = async (text, currentMessages) => {
+    setTyping(true);
+    setQuickReplies([]);
+    try {
+      const history = currentMessages.map((m) => ({
+        role: m.role === "user" ? "user" : "assistant",
+        text: m.text,
+      }));
+      const { data } = await axios.post(
+        `${API}/chat`,
+        { session_id: sessionId || undefined, message: text, history },
+        { timeout: 45000 }
+      );
+      persistSession(data.session_id);
+      setMessages((m) => [...m, { role: "bot", text: data.response }]);
+      setQuickReplies(INITIAL_QUICK_REPLIES);
+    } catch (err) {
+      const fallback = respond("fallback");
+      setMessages((m) => [
+        ...m,
+        {
+          role: "bot",
+          text:
+            "Maaf, koneksi ke AI sedang lambat. Coba lagi dalam beberapa detik — atau pakai tombol cepat di bawah ya.",
+        },
+      ]);
+      setQuickReplies(fallback.quickReplies || INITIAL_QUICK_REPLIES);
+    } finally {
+      setTyping(false);
+    }
+  };
+
+  // Keywords that we keep rule-based (faster + deterministic for purchase flows).
+  const FAST_INTENTS = new Set([
+    "bab1",
+    "harga",
+    "wa",
+    "select-free",
+    "select-perbab",
+    "select-full",
+    "pay-transfer",
+    "pay-qris",
+  ]);
+
   const userSay = (text) => {
     if (!text.trim()) return;
-    setMessages((m) => [...m, { role: "user", text }]);
+    const newMsg = { role: "user", text };
+    const newMessages = [...messages, newMsg];
+    setMessages(newMessages);
     setInput("");
     trackCta("ai-chat-message", "ai-widget");
+
     const intent = intentOf(text);
-    sendBot(respond(intent));
+    if (FAST_INTENTS.has(intent)) {
+      // Fast rule-based path for transactional intents
+      sendBot(respond(intent));
+    } else {
+      // Free-text → LLM
+      callLlm(text, newMessages.slice(0, -1));
+    }
   };
 
   const handleIntent = (intent) => {
