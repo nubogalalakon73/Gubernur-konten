@@ -29,30 +29,23 @@ Premium cinematic landing page for the Indonesian political-academic ebook **"Gu
 - Formats showcase
 - **Restructured Pricing**: Free Bab 1 (link → /bab1) · Per Bab Rp 10.000 (open chat) · Full Buku Rp 55.000 (open chat, PALING DIMINATI featured)
 - AI Assistant mockup section
-- **Interactive AI Chat Widget** (global, floating bottom-right):
-  - Auto greeting on first open
-  - 4 initial quick replies (Bab 1, Tanya Isi, Lihat Harga, WA)
-  - Rule-based intent matching for free-text input (harga, tentang, rekomendasi by profession, wa, bayar, salam)
-  - Purchase flow with payment quick replies (Transfer Bank, QRIS, WhatsApp Admin)
-  - Cross-component trigger via `openChat()` event bus
-  - CTA tracking → `/api/cta`
-- **/bab1 reader page**:
-  - Dark editorial, mobile-first, Source Serif Pro typography
-  - Top progress bar (scroll %)
-  - Sticky reading-time header + 'Full Buku 55K' button
-  - Mid-article soft CTA after section 3
-  - Locked chapter teasers (BAB 2-7)
-  - 60%-scroll popup ("Pembaca yang menyelesaikan Bab 1...")
-  - Light anti-copy (right-click block + copy injects watermark)
-  - Faint repeating watermark behind text
-  - SEO meta (title, description, OG) updated dynamically
-  - Sticky bottom CTA bar
+- **AI Chat Widget — REAL AI (Claude Sonnet 4.5 via Emergent LLM Key):**
+  - Global floating widget bottom-right
+  - Auto greeting + 4 quick replies (Bab 1, Tanya Isi, Lihat Harga, WA)
+  - Free-text → `/api/chat` (Claude Sonnet 4.5 with full book context as system prompt)
+  - Purchase fast paths (harga, bab1, wa, select-*, pay-*) stay rule-based for speed/determinism
+  - Session persistence via `localStorage` (gk_chat_session_id); history (last 8) sent each call
+  - Messages persisted in MongoDB `chat_messages` collection
+  - Admin endpoint `GET /api/chat/sessions` lists conversations
+- **/bab1 reader page**: dark editorial, mobile-first, progress bar, sticky CTA, mid-CTA, locked teasers, 60%-scroll popup, light anti-copy
 - Lead capture form (validates + saves to MongoDB + localStorage mirror + success popup)
 - FAQ accordion, Urgency section with live countdown
-- Footer (email, social placeholders, disclaimer)
-- Sticky transparent→solid navbar with mobile menu + smooth scroll
+- Footer, navbar (sticky + mobile menu + smooth scroll)
 - Admin dashboard `/admin`: stat cards, lead table, filter, delete, CSV export
 - SEO: title, description, Open Graph, Twitter card meta
+
+## Bank Account (live)
+- BCA **7772112141** a.n. **DIDI SUBANDI** (in `chat_prompt.py` + `chatBot.js` pay-transfer)
 
 ## Testing
 - Backend pytest: 9/9 passed
