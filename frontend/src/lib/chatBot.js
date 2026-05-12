@@ -144,7 +144,7 @@ export function respond(intent, ctx = {}) {
     case "pay-transfer":
       return {
         text:
-          "🏦 *Transfer Bank*\n\nBCA: 1234567890 a.n. Riset Hibrida\nMandiri: 0987654321 a.n. Riset Hibrida\n\nSetelah transfer, kirim bukti ke WhatsApp Admin. Akses akan dikirim < 10 menit.",
+          "🏦 *Transfer Bank*\n\nBCA: 7772112141\na.n. DIDI SUBANDI\n\nSetelah transfer, kirim bukti ke WhatsApp Admin. Akses akan dikirim < 10 menit.",
         quickReplies: [
           { id: "confirm-wa", label: "📲 Kirim Bukti via WA", intent: "wa" },
           QR_BACK,
