@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -7,14 +7,20 @@ import os
 import logging
 import io
 import csv
+import time
+import secrets
+from collections import defaultdict, deque
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional, Literal
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import asyncio
+import httpx
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from chat_prompt import SYSTEM_PROMPT
+from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
 
 
 ROOT_DIR = Path(__file__).parent
@@ -89,12 +95,16 @@ async def get_stats():
 
 
 @api_router.post("/leads", response_model=Lead)
-async def create_lead(payload: LeadCreate):
+async def create_lead(payload: LeadCreate, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"leads:{ip}", 5, 600)  # 5 per 10 min per IP
     # Basic dedupe by email within last day not enforced; allow re-submit but track
     lead = Lead(**payload.model_dump())
     doc = lead.model_dump()
     await db.leads.insert_one(doc)
     logger.info(f"New lead captured: {lead.email}")
+    # Fire and forget welcome email
+    asyncio.create_task(send_email(lead.email, "Selamat datang — Gubernur Konten", _welcome_email_html(lead.name, lead.interest or "")))
     return lead
 
 
@@ -142,7 +152,9 @@ async def delete_lead(lead_id: str):
 
 
 @api_router.post("/cta", response_model=CtaEvent)
-async def track_cta(payload: CtaEventCreate):
+async def track_cta(payload: CtaEventCreate, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"cta:{ip}", 60, 60)
     ev = CtaEvent(**payload.model_dump())
     await db.cta_events.insert_one(ev.model_dump())
     return ev
@@ -178,7 +190,9 @@ def _build_system_with_history(history: List[ChatMessage]) -> str:
 
 
 @api_router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(payload: ChatRequest):
+async def chat_endpoint(payload: ChatRequest, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"chat:{ip}", 20, 60)
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
@@ -211,7 +225,7 @@ async def chat_endpoint(payload: ChatRequest):
 
 
 @api_router.get("/chat/sessions")
-async def chat_sessions(limit: int = 200):
+async def chat_sessions(limit: int = 200, _: str = Depends(lambda: None)):
     """Admin: list latest chat sessions with sample message."""
     pipeline = [
         {"$sort": {"created_at": -1}},
@@ -221,6 +235,256 @@ async def chat_sessions(limit: int = 200):
     ]
     items = await db.chat_messages.aggregate(pipeline).to_list(length=limit)
     return [{"session_id": x["_id"], "last_message": x["last"], "last_at": x["last_at"], "count": x["count"]} for x in items]
+
+
+# ---------- Rate Limiting (in-memory) ----------
+RATE_BUCKETS: dict = defaultdict(deque)
+
+
+def _rate_limit(key: str, limit: int, window_sec: int):
+    """Simple in-memory rate limit. Raises 429 if exceeded."""
+    now = time.time()
+    bucket = RATE_BUCKETS[key]
+    # Drop expired
+    while bucket and bucket[0] < now - window_sec:
+        bucket.popleft()
+    if len(bucket) >= limit:
+        raise HTTPException(status_code=429, detail="Terlalu banyak permintaan. Coba lagi sebentar.")
+    bucket.append(now)
+
+
+def rate_limit_factory(limit: int, window_sec: int, prefix: str):
+    async def dep(request: Request):
+        ip = request.client.host if request.client else "unknown"
+        _rate_limit(f"{prefix}:{ip}", limit, window_sec)
+    return dep
+
+
+# ---------- Admin Auth ----------
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+ADMIN_TOKENS: dict = {}  # token -> expires_ts
+
+
+class AdminLogin(BaseModel):
+    password: str
+
+
+@api_router.post("/admin/login")
+async def admin_login(payload: AdminLogin, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"admin-login:{ip}", 5, 60)
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="Admin password not configured")
+    if payload.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Password salah")
+    token = secrets.token_urlsafe(32)
+    ADMIN_TOKENS[token] = time.time() + 8 * 3600  # 8h
+    return {"token": token, "expires_in": 8 * 3600}
+
+
+def require_admin(authorization: Optional[str] = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing auth")
+    token = authorization.split(" ", 1)[1].strip()
+    exp = ADMIN_TOKENS.get(token)
+    if not exp or exp < time.time():
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return token
+
+
+# ---------- Email (Resend) ----------
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM = os.environ.get("RESEND_FROM", "Gubernur Konten <onboarding@resend.dev>")
+
+
+async def send_email(to: str, subject: str, html: str) -> bool:
+    """Send email via Resend. Returns True if sent, False otherwise (gracefully)."""
+    if not RESEND_API_KEY:
+        logger.info(f"[email-skip] no RESEND_API_KEY; would send to {to}: {subject}")
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={"from": RESEND_FROM, "to": [to], "subject": subject, "html": html},
+            )
+            if r.status_code >= 400:
+                logger.warning(f"Resend error {r.status_code}: {r.text[:200]}")
+                return False
+            return True
+    except Exception:
+        logger.exception("Resend send failed")
+        return False
+
+
+def _welcome_email_html(name: str, interest: str) -> str:
+    pkg_line = f"<p><strong>Minat Anda:</strong> {interest}</p>" if interest else ""
+    return f"""
+    <div style="font-family: -apple-system, sans-serif; background: #0B0F14; color: #F4F0E8; padding: 32px;">
+      <h2 style="color: #F4F0E8; font-family: Georgia, serif;">Halo {name},</h2>
+      <p style="color: #F4F0E8; line-height: 1.7;">
+        Terima kasih telah mendaftar untuk ebook <strong>Gubernur Konten — Siapa Dalang, Siapa Wayang?</strong>
+      </p>
+      <p style="color: #F4F0E8; line-height: 1.7;">
+        Tim kami akan menghubungi Anda via WhatsApp dalam 24 jam untuk konfirmasi pembelian dan mengirim link akses.
+      </p>
+      {pkg_line}
+      <p style="color: #F4F0E8;">Sementara itu, Anda bisa baca <strong>Bab 1 gratis</strong> sekarang:</p>
+      <p><a href="https://gubernur-konten.preview.emergentagent.com/bab1" style="display:inline-block; background:#B8211A; color:#F4F0E8; padding:14px 24px; text-decoration:none; font-weight:bold; letter-spacing:0.1em;">BACA BAB 1 GRATIS →</a></p>
+      <hr style="border:none; border-top:1px solid rgba(244,240,232,0.15); margin: 32px 0;" />
+      <p style="color: rgba(244,240,232,0.6); font-size: 12px;">
+        Salam,<br/>Tim Gubernur Konten<br/>Didi Subandi & Yully Ambarsih Ekawardhani
+      </p>
+    </div>
+    """
+
+
+def _token_email_html(name: str, chapter_label: str, link: str) -> str:
+    return f"""
+    <div style="font-family: -apple-system, sans-serif; background: #0B0F14; color: #F4F0E8; padding: 32px;">
+      <h2 style="color: #F4F0E8; font-family: Georgia, serif;">Halo {name},</h2>
+      <p style="color: #F4F0E8; line-height: 1.7;">
+        Pembayaran Anda telah dikonfirmasi. Berikut link akses pribadi Anda untuk:
+      </p>
+      <p style="color: #C9920A; font-size: 18px; font-weight: bold;">{chapter_label}</p>
+      <p><a href="{link}" style="display:inline-block; background:#B8211A; color:#F4F0E8; padding:14px 24px; text-decoration:none; font-weight:bold; letter-spacing:0.1em;">BUKA SEKARANG →</a></p>
+      <p style="color: rgba(244,240,232,0.6); font-size: 12px; margin-top: 24px;">
+        Link ini bersifat pribadi dan tidak dapat dibagikan. Berlaku selamanya selama akun aktif.
+      </p>
+      <hr style="border:none; border-top:1px solid rgba(244,240,232,0.15); margin: 32px 0;" />
+      <p style="color: rgba(244,240,232,0.6); font-size: 12px;">
+        Tim Gubernur Konten<br/>Didi Subandi & Yully Ambarsih Ekawardhani
+      </p>
+    </div>
+    """
+
+
+# ---------- Chapter Content & Access Tokens ----------
+class AccessTokenCreate(BaseModel):
+    email: str
+    name: Optional[str] = ""
+    chapter: str  # "2".."7" or "full"
+    send_email: Optional[bool] = True
+    expires_days: Optional[int] = None  # None = no expiry
+
+
+class AccessToken(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    token: str
+    email: str
+    name: Optional[str] = ""
+    chapter: str
+    created_at: str
+    expires_at: Optional[str] = None
+    used_count: int = 0
+    last_used_at: Optional[str] = None
+    revoked: bool = False
+
+
+@api_router.get("/chapters")
+async def list_chapters():
+    """Public: list chapter metadata (no body)."""
+    return [get_chapter_meta(n) for n in sorted(CHAPTERS.keys())]
+
+
+@api_router.get("/chapters/{n}")
+async def get_chapter_content(n: int, token: str = "", request: Request = None):
+    """Public: fetch chapter content if a valid access token is provided.
+    Token must match chapter (or be a 'full' token)."""
+    chapter = get_chapter(n)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    if request is not None:
+        ip = request.client.host if request.client else "unknown"
+        _rate_limit(f"chapter:{ip}", 30, 60)
+    if not token:
+        raise HTTPException(status_code=403, detail="Token akses diperlukan")
+    doc = await db.access_tokens.find_one({"token": token}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=403, detail="Token tidak valid")
+    if doc.get("revoked"):
+        raise HTTPException(status_code=403, detail="Token telah dicabut")
+    if doc.get("expires_at"):
+        try:
+            exp_dt = datetime.fromisoformat(doc["expires_at"])
+            if exp_dt < datetime.now(timezone.utc):
+                raise HTTPException(status_code=403, detail="Token telah kedaluwarsa")
+        except ValueError:
+            pass
+    # Check chapter access
+    ch = doc.get("chapter")
+    if ch != "full" and str(ch) != str(n):
+        raise HTTPException(status_code=403, detail=f"Token ini hanya untuk Bab {ch}")
+    # Mark usage
+    now = datetime.now(timezone.utc).isoformat()
+    await db.access_tokens.update_one(
+        {"token": token},
+        {"$inc": {"used_count": 1}, "$set": {"last_used_at": now}},
+    )
+    return {"n": n, **chapter}
+
+
+@api_router.post("/admin/tokens")
+async def admin_create_token(payload: AccessTokenCreate, _: str = Depends(require_admin)):
+    if payload.chapter not in {"full"} | {str(i) for i in range(2, 8)}:
+        raise HTTPException(status_code=400, detail="Chapter harus 2-7 atau 'full'")
+    token_val = secrets.token_urlsafe(16)
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(days=payload.expires_days)).isoformat() if payload.expires_days else None
+    doc = {
+        "id": str(uuid.uuid4()),
+        "token": token_val,
+        "email": payload.email,
+        "name": payload.name or "",
+        "chapter": payload.chapter,
+        "created_at": now.isoformat(),
+        "expires_at": expires_at,
+        "used_count": 0,
+        "last_used_at": None,
+        "revoked": False,
+    }
+    await db.access_tokens.insert_one(doc)
+    # Build link
+    base = os.environ.get("PUBLIC_BASE_URL", "https://gubernur-konten.preview.emergentagent.com")
+    if payload.chapter == "full":
+        link = f"{base}/bab/all?t={token_val}"
+        label = "Akses Full Buku (Bab 2-7)"
+    else:
+        link = f"{base}/bab/{payload.chapter}?t={token_val}"
+        ch_meta = get_chapter_meta(int(payload.chapter))
+        label = f"{ch_meta['number']} — {ch_meta['title']}" if ch_meta else f"Bab {payload.chapter}"
+    sent = False
+    if payload.send_email:
+        sent = await send_email(payload.email, f"Akses Anda: {label}", _token_email_html(payload.name or "Pembaca", label, link))
+    return {
+        "id": doc["id"],
+        "token": token_val,
+        "link": link,
+        "label": label,
+        "email_sent": sent,
+        "chapter": payload.chapter,
+        "expires_at": expires_at,
+    }
+
+
+@api_router.get("/admin/tokens")
+async def admin_list_tokens(limit: int = 200, _: str = Depends(require_admin)):
+    items = await db.access_tokens.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    base = os.environ.get("PUBLIC_BASE_URL", "https://gubernur-konten.preview.emergentagent.com")
+    for it in items:
+        ch = it.get("chapter")
+        it["link"] = f"{base}/bab/{'all' if ch == 'full' else ch}?t={it['token']}"
+    return items
+
+
+@api_router.delete("/admin/tokens/{token_id}")
+async def admin_revoke_token(token_id: str, _: str = Depends(require_admin)):
+    res = await db.access_tokens.update_one({"id": token_id}, {"$set": {"revoked": True}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return {"revoked": True, "id": token_id}
 
 
 app.include_router(api_router)

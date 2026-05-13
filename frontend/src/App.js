@@ -3,8 +3,11 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import Landing from "@/pages/Landing";
-import Admin from "@/pages/Admin";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminDashboard from "@/pages/AdminDashboard";
 import Bab1 from "@/pages/Bab1";
+import Chapter from "@/pages/Chapter";
+import BabAll from "@/pages/BabAll";
 import AIChatWidget from "@/components/AIChatWidget";
 
 function App() {
@@ -14,9 +17,11 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/bab1" element={<Bab1 />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/bab/all" element={<BabAll />} />
+          <Route path="/bab/:n" element={<Chapter />} />
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
         </Routes>
-        {/* Global AI Assistant — present on every page except admin via inner check */}
         <AIChatWidget />
       </BrowserRouter>
       <Toaster
