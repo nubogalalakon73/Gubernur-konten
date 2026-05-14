@@ -63,7 +63,7 @@ export default function Hero() {
                 data-testid="hero-cta-primary"
                 className="btn-primary group"
               >
-                Beli Ebook Sekarang
+                Traktir Ebook Sekarang
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" strokeWidth={2} />
               </button>
               <Link
@@ -76,7 +76,7 @@ export default function Hero() {
                 Baca Bab 1 Gratis
               </Link>
               <a
-                href={WA_LINK("Halo, saya tertarik dengan ebook Gubernur Konten. Mohon info pembelian.")}
+                href={WA_LINK("Halo, saya tertarik dengan ebook Gubernur Konten. Mohon info untuk mentraktir.")}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => trackCta("hero-wa-consult", "hero")}

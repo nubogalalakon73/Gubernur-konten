@@ -24,8 +24,8 @@ const FAQS = [
     a: "Sangat cocok. Buku ini disusun dengan referensi akademik, data BPS, dan kerangka analitik yang siap dipakai sebagai rujukan kuliah komunikasi politik, sosiologi digital, atau studi media.",
   },
   {
-    q: "Bagaimana cara membeli?",
-    a: "Pilih paket di section harga, klik tombol pembelian, dan Anda akan diarahkan ke WhatsApp AI Assistant. Tim kami mengirim invoice, menerima pembayaran (BCA/Mandiri/QRIS/E-Wallet), lalu mengirim link unduh dalam kurang dari 10 menit.",
+    q: "Bagaimana cara mentraktir & mendapat akses?",
+    a: "Pilih paket di section harga, klik tombol traktir, dan Anda akan diarahkan ke WhatsApp AI Assistant. Tim kami mengirim invoice, menerima pembayaran (BCA/QRIS/E-Wallet), lalu mengirim link unduh dalam kurang dari 10 menit.",
   },
 ];
 

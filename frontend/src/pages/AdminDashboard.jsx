@@ -151,10 +151,10 @@ export default function AdminDashboard() {
           {/* Create token form */}
           <form onSubmit={onCreateToken} className="gk-card p-6 lg:col-span-1 h-fit" data-testid="admin-token-form">
             <h3 className="font-display text-xl font-semibold mb-1">Generate Token</h3>
-            <p className="text-xs text-[#F4F0E8]/55 mb-5">Setelah pembayaran dikonfirmasi, buat link akses pribadi untuk pembeli.</p>
+            <p className="text-xs text-[#F4F0E8]/55 mb-5">Setelah pembayaran dikonfirmasi, buat link akses pribadi untuk pendukung.</p>
             <div className="space-y-4">
               <div>
-                <label className="overline text-[#F4F0E8]/60 block mb-1.5">Email pembeli *</label>
+                <label className="overline text-[#F4F0E8]/60 block mb-1.5">Email pendukung *</label>
                 <input type="email" value={tEmail} onChange={(e) => setTEmail(e.target.value)} className="gk-input" required data-testid="admin-token-email" />
               </div>
               <div>
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
               </div>
               <label className="flex items-center gap-2 text-sm text-[#F4F0E8]/80">
                 <input type="checkbox" checked={tSendEmail} onChange={(e) => setTSendEmail(e.target.checked)} data-testid="admin-token-sendmail" />
-                Kirim email otomatis ke pembeli
+                Kirim email otomatis ke pendukung
               </label>
             </div>
             <button type="submit" disabled={tCreating} className="mt-5 btn-primary w-full justify-center disabled:opacity-50" data-testid="admin-token-create">
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
                     {copied === "last" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
                 </div>
-                {lastCreated.email_sent && <div className="mt-2 text-[10px] text-[#25D366]">✓ Email terkirim ke pembeli</div>}
+                {lastCreated.email_sent && <div className="mt-2 text-[10px] text-[#25D366]">✓ Email terkirim ke pendukung</div>}
               </div>
             )}
           </form>

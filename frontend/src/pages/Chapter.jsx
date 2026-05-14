@@ -118,7 +118,7 @@ export default function Chapter() {
           <p className="mt-2 text-xs text-[#F4F0E8]/45 font-mono">Bab {n}</p>
           <div className="mt-7 flex flex-col gap-3">
             <button onClick={() => { trackCta("chapter-locked-buy", "chapter"); navigate("/#pricing"); }} className="btn-primary justify-center" data-testid="chapter-error-buy">
-              Beli Akses Sekarang
+              Traktir Akses Sekarang
             </button>
             <Link to="/" className="btn-ghost justify-center" data-testid="chapter-error-home">Kembali ke Beranda</Link>
           </div>

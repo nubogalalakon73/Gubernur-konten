@@ -186,7 +186,10 @@ export default function Bab1() {
           <div className="mt-16 pt-10 border-t border-white/10">
             <div className="gk-ribbon mb-5">Bab Berikutnya</div>
             <h2 className="font-display text-2xl sm:text-3xl font-bold !mt-0 text-[#F4F0E8]">Tunggu Anda di halaman berikutnya.</h2>
-            <p className="text-[#F4F0E8]/70 text-base mt-3">Akses berikut hanya tersedia di Full Buku atau pembelian per-bab.</p>
+            <p className="text-[#F4F0E8]/70 text-base mt-3">Akses berikut hanya tersedia di Full Buku atau traktir per-bab.</p>
+            <div className="mt-5 flex items-center gap-2 text-xs text-[#C9920A] font-mono">
+              <span>☕</span><span>Rp 10.000 / bab · Rp 55.000 / full</span>
+            </div>
 
             <div className="mt-7 space-y-3" data-testid="bab1-locked-list">
               {[
@@ -225,7 +228,7 @@ export default function Bab1() {
               Tanya AI
             </button>
             <button onClick={buyFull} className="btn-primary text-xs py-2.5 px-4 shrink-0" data-testid="bab1-sticky-buy">
-              Beli Rp 55K
+              Traktir Rp 55K
             </button>
           </div>
         </div>

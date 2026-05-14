@@ -31,7 +31,7 @@ export default function AIAssistant() {
               Bicara langsung dengan <span className="italic text-[#C9920A]">AI Assistant</span> Gubernur Konten.
             </h2>
             <p className="mt-6 text-[#F4F0E8]/70 leading-relaxed max-w-xl">
-              Bukan chatbot generik. Asisten ini terlatih dari materi buku — siap menjawab pertanyaan isi, memberi rekomendasi bab, dan membantu pembelian — semua di WhatsApp.
+              Bukan chatbot generik. Asisten ini terlatih dari materi buku — siap menjawab pertanyaan isi, memberi rekomendasi bab, dan membantu Anda mentraktir buku — semua di WhatsApp.
             </p>
 
             <ul className="mt-8 grid sm:grid-cols-2 gap-3 max-w-xl">

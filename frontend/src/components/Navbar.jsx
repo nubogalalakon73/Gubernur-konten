@@ -9,7 +9,7 @@ const links = [
   { label: "Mengapa Penting", id: "viral" },
   { label: "Testimoni", id: "testimonials" },
   { label: "FAQ", id: "faq" },
-  { label: "Beli Sekarang", id: "pricing" },
+  { label: "Traktir Sekarang", id: "pricing" },
 ];
 
 export default function Navbar() {

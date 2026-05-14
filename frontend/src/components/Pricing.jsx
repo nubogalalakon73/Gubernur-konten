@@ -1,4 +1,4 @@
-import { Check, Sparkles, BookOpen, ArrowRight, MessageCircle } from "lucide-react";
+import { Check, Sparkles, BookOpen, ArrowRight, MessageCircle, Coffee } from "lucide-react";
 import { Link } from "react-router-dom";
 import { trackCta } from "@/lib/api";
 import { useReveal } from "@/lib/useReveal";
@@ -6,28 +6,10 @@ import { openChat } from "@/lib/chatEvents";
 
 const PLANS = [
   {
-    id: "free",
-    tag: "Free Preview",
-    name: "Bab 1 Gratis",
-    sub: "Ketika Algoritma Menjadi Alun-Alun",
-    price: "Rp 0",
-    priceNote: "Akses langsung di HP",
-    features: [
-      "Bisa dibaca langsung di HP",
-      "Mode baca responsive — tanpa unduh PDF",
-      "Tampilan seperti artikel premium",
-      "Gratis akses preview",
-    ],
-    note: "Ribuan pembaca memulai dari bab ini.",
-    cta: "Baca Gratis Sekarang",
-    style: "ghost",
-    icon: BookOpen,
-  },
-  {
     id: "perbab",
-    tag: "Satuan",
+    tag: "Satuan · Traktir Kopi",
     name: "Per Bab",
-    sub: "Pilih kedalaman yang ingin Anda bongkar",
+    sub: "Pilih kedalaman yang ingin Anda bongkar.",
     price: "Rp 10.000",
     priceNote: "per bab · Bab 2 – Bab 7",
     features: [
@@ -38,10 +20,10 @@ const PLANS = [
       "Bab 6 — AI, Deepfake & Demokrasi",
       "Bab 7 — Setelah Panggung Ditutup",
     ],
-    note: "Seperti membeli episode serial politik.",
-    cta: "Pilih Bab",
+    note: "Seperti mentraktir secangkir kopi untuk satu episode serial politik.",
+    cta: "Traktir Per Bab",
     style: "ghost",
-    icon: Sparkles,
+    icon: Coffee,
   },
   {
     id: "full",
@@ -49,7 +31,7 @@ const PLANS = [
     name: "Full Buku",
     sub: "Tujuh bab, tiga format, satu peta kekuasaan.",
     price: "Rp 55.000",
-    priceNote: "Sekali bayar · Akses selamanya",
+    priceNote: "Sekali traktir · Akses selamanya",
     features: [
       "Semua 7 bab",
       "PDF premium · cetak-siap",
@@ -59,7 +41,7 @@ const PLANS = [
       "Bonus: akses AI Assistant",
     ],
     note: "Paling diminati pembaca akademis & praktisi.",
-    cta: "Ambil Full Buku",
+    cta: "Traktir Full Buku",
     style: "primary",
     featured: true,
     icon: Sparkles,
@@ -71,14 +53,8 @@ export default function Pricing() {
 
   const onSelect = (plan) => {
     trackCta(`pricing-${plan.id}`, "pricing");
-    // Open AI chat with appropriate intent
-    if (plan.id === "free") {
-      openChat({ intent: "bab1" });
-    } else if (plan.id === "perbab") {
-      openChat({ intent: "select-perbab" });
-    } else {
-      openChat({ intent: "select-full" });
-    }
+    if (plan.id === "perbab") openChat({ intent: "select-perbab" });
+    else openChat({ intent: "select-full" });
   };
 
   return (
@@ -92,15 +68,45 @@ export default function Pricing() {
         <div className={`max-w-3xl mb-14 reveal ${vis ? "is-visible" : ""}`}>
           <div className="gk-ribbon mb-5">Pilih jalur akses</div>
           <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-[#F4F0E8] leading-tight">
-            Mulai dari <span className="italic text-[#C9920A]">gratis</span>. Lanjut sesuai kedalaman.
+            Bab 1 selalu <span className="italic text-[#C9920A]">gratis</span>. Sisanya, cukup ditraktir kopi.
           </h2>
           <p className="mt-5 text-[#F4F0E8]/65 max-w-2xl">
-            Bab 1 gratis untuk semua — bayar hanya bila Anda ingin membongkar lebih dalam. Konfirmasi pembelian dilakukan oleh AI Assistant langsung di halaman ini, lalu akses dikirim ke WhatsApp Anda.
+            Tidak ada paywall, tidak ada form. Mulai baca Bab 1 sekarang. Bila Anda ingin membongkar lebih dalam, traktir kami secangkir kopi seharga Rp 10.000 per bab — atau Rp 55.000 untuk seluruh buku.
           </p>
         </div>
 
-        <div className={`grid lg:grid-cols-3 gap-6 lg:gap-7 stagger ${vis ? "is-visible" : ""}`}>
-          {PLANS.map((p, i) => {
+        {/* Free Bab 1 banner */}
+        <div
+          data-testid="pricing-free-banner"
+          className={`gk-card p-6 sm:p-7 mb-8 reveal ${vis ? "is-visible" : ""} flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-7`}
+          style={{ borderColor: "rgba(201,146,10,0.3)" }}
+        >
+          <div className="shrink-0 w-12 h-12 grid place-items-center border border-[#C9920A]/40">
+            <BookOpen className="w-5 h-5 text-[#C9920A]" strokeWidth={1.6} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="overline text-[#C9920A]">Free · Tanpa form, tanpa login</div>
+            <div className="font-display text-xl sm:text-2xl font-semibold text-[#F4F0E8] mt-1">
+              Bab 1 — Ketika Algoritma Menjadi Alun-Alun
+            </div>
+            <p className="text-xs sm:text-sm text-[#F4F0E8]/60 mt-1">
+              Bisa langsung dibaca di HP, mode responsive, ~14 menit. Tanpa unduh PDF.
+            </p>
+          </div>
+          <Link
+            to="/bab1"
+            onClick={() => trackCta("pricing-free", "pricing")}
+            data-testid="pricing-free-cta"
+            className="btn-gold w-full sm:w-auto justify-center shrink-0"
+          >
+            <BookOpen className="w-4 h-4" />
+            Baca Bab 1 Gratis
+          </Link>
+        </div>
+
+        {/* Two pricing cards */}
+        <div className={`grid lg:grid-cols-2 gap-6 lg:gap-7 stagger ${vis ? "is-visible" : ""}`}>
+          {PLANS.map((p) => {
             const Icon = p.icon;
             return (
               <div
@@ -120,17 +126,17 @@ export default function Pricing() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="overline text-[#C9920A]">{p.tag}</div>
-                    <h3 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-[#F4F0E8]">
+                    <h3 className="mt-2 font-display text-3xl sm:text-4xl font-bold text-[#F4F0E8]">
                       {p.name}
                     </h3>
-                    <p className="mt-1.5 text-xs text-[#F4F0E8]/55 max-w-[28ch]">{p.sub}</p>
+                    <p className="mt-1.5 text-xs text-[#F4F0E8]/55 max-w-[34ch]">{p.sub}</p>
                   </div>
-                  <Icon className="w-6 h-6 text-[#C9920A]/70 shrink-0" strokeWidth={1.5} />
+                  <Icon className="w-7 h-7 text-[#C9920A]/70 shrink-0" strokeWidth={1.5} />
                 </div>
 
                 <div className="mt-7">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="font-display text-5xl font-black text-[#F4F0E8]">{p.price}</span>
+                    <span className="font-display text-5xl sm:text-6xl font-black text-[#F4F0E8]">{p.price}</span>
                   </div>
                   <div className="mt-1 text-xs text-[#F4F0E8]/45 font-mono uppercase tracking-wider">{p.priceNote}</div>
                 </div>
@@ -148,27 +154,15 @@ export default function Pricing() {
                   <p className="mt-6 text-xs italic text-[#F4F0E8]/55 font-display">{p.note}</p>
                 )}
 
-                {p.id === "free" ? (
-                  <Link
-                    to="/bab1"
-                    onClick={() => onSelect(p)}
-                    data-testid={`pricing-cta-${p.id}`}
-                    className="mt-7 btn-ghost justify-center"
-                  >
-                    <BookOpen className="w-4 h-4" strokeWidth={1.8} />
-                    {p.cta}
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => onSelect(p)}
-                    data-testid={`pricing-cta-${p.id}`}
-                    className={`mt-7 ${p.featured ? "btn-primary" : "btn-ghost"} justify-center`}
-                  >
-                    <MessageCircle className="w-4 h-4" strokeWidth={1.8} />
-                    {p.cta}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  onClick={() => onSelect(p)}
+                  data-testid={`pricing-cta-${p.id}`}
+                  className={`mt-7 ${p.featured ? "btn-primary" : "btn-ghost"} justify-center`}
+                >
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.8} />
+                  {p.cta}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             );
           })}

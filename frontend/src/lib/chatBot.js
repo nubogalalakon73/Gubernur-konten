@@ -33,7 +33,7 @@ function detectIntent(textRaw) {
   const t = (textRaw || "").toLowerCase();
   if (!t.trim()) return "fallback";
   if (/(bab 1|bab1|preview|gratis|free|sample|baca dulu)/.test(t)) return "bab1";
-  if (/(harga|biaya|beli|berapa|tarif|paket|price|murah)/.test(t)) return "harga";
+  if (/(harga|biaya|beli|traktir|berapa|tarif|paket|price|murah)/.test(t)) return "harga";
   if (/(rekomendasi|saran|cocok|profesi|mahasiswa|dosen|akademisi|politisi|asn|aktivis|jurnalis|konsultan|kreator)/.test(t))
     return "rekomendasi";
   if (/(isi|tentang|apa itu|gubernur konten|konsep|sinopsis|isi buku|materi|bab)/.test(t)) return "tentang";
@@ -69,14 +69,14 @@ const QR_PROFESI = [
   QR_BACK,
 ];
 
-const PURCHASE_FLOW_TEXT = `Terima kasih sudah tertarik 🙏\n\n*Gubernur Konten: Siapa Dalang, Siapa Wayang?*\n\nSilakan pilih paket Anda:\n1️⃣ Bab 1 GRATIS\n2️⃣ Per Bab Rp 10.000\n3️⃣ Full Buku Rp 55.000\n\nSetelah pembayaran dikonfirmasi, akses langsung dikirim otomatis via WhatsApp.`;
+const PURCHASE_FLOW_TEXT = `Terima kasih sudah tertarik mentraktir kami ☕\n\n*Gubernur Konten: Siapa Dalang, Siapa Wayang?*\n\nSilakan pilih paket Anda:\n1️⃣ Bab 1 GRATIS (tanpa form)\n2️⃣ Per Bab Rp 10.000\n3️⃣ Full Buku Rp 55.000\n\nSetelah pembayaran dikonfirmasi, akses langsung dikirim otomatis via WhatsApp.`;
 
 // Build response per intent (action returns: { text, quickReplies, action })
 export function respond(intent, ctx = {}) {
   switch (intent) {
     case "salam":
       return {
-        text: "Halo 👋 Saya AI Asisten Gubernur Konten. Saya bisa bantu Anda baca Bab 1 gratis, jelaskan isi buku, atau bahas paket pembelian. Pilih salah satu di bawah ya.",
+        text: "Halo 👋 Saya AI Asisten Gubernur Konten. Saya bisa bantu Anda baca Bab 1 gratis, jelaskan isi buku, atau bahas paket traktir. Pilih salah satu di bawah ya.",
         quickReplies: INITIAL_QUICK_REPLIES,
       };
 
@@ -137,7 +137,7 @@ export function respond(intent, ctx = {}) {
 
     case "select-full":
       return {
-        text: PURCHASE_FLOW_TEXT + "\n\nAnda memilih *Full Buku Rp 55.000* — pilih metode bayar:",
+        text: PURCHASE_FLOW_TEXT + "\n\nAnda memilih *Full Buku Rp 55.000* — pilih metode traktir:",
         quickReplies: QR_PAYMENT,
       };
 
@@ -166,7 +166,7 @@ export function respond(intent, ctx = {}) {
         text:
           "Membuka WhatsApp Admin sekarang… Jika tidak terbuka otomatis, nomor: 0899-855-3333.",
         quickReplies: INITIAL_QUICK_REPLIES,
-        action: { type: "open-wa", url: WA_LINK("Halo Admin, saya ingin lanjut beli ebook Gubernur Konten.") },
+        action: { type: "open-wa", url: WA_LINK("Halo Admin, saya ingin mentraktir ebook Gubernur Konten.") },
       };
 
     case "rekomendasi":
