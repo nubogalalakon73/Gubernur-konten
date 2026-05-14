@@ -1,8 +1,10 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import json
 import logging
 import time
 import secrets
@@ -13,10 +15,20 @@ from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+from sqlalchemy import select
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from chat_prompt import SYSTEM_PROMPT
 from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
+from db_sqlite import init_db, AsyncSessionLocal, Order, order_to_dict
+from midtrans import (
+    create_snap_transaction,
+    verify_signature,
+    map_status,
+    price_for,
+    is_valid_package,
+    PACKAGE_PRICES,
+)
 
 
 ROOT_DIR = Path(__file__).parent
@@ -378,6 +390,215 @@ async def admin_revoke_token(token_id: str, _: str = Depends(require_admin)):
     return {"revoked": True, "id": token_id}
 
 
+# ============================================================
+# MIDTRANS PAYMENT FLOW
+# ============================================================
+FILES_DIR = Path(__file__).parent / "files"
+
+
+class CreatePaymentRequest(BaseModel):
+    nama: str = Field(..., min_length=1, max_length=120)
+    email: str = Field(..., min_length=3, max_length=200)
+    whatsapp: str = Field(..., min_length=6, max_length=30)
+    paket: str  # "full" or "bab-2".."bab-7"
+
+
+@api_router.get("/packages")
+async def list_packages():
+    """Public: list available paket with prices."""
+    return [
+        {"paket": k, "harga": v[0], "label": v[1]}
+        for k, v in PACKAGE_PRICES.items()
+    ]
+
+
+@api_router.post("/create-payment")
+async def create_payment(payload: CreatePaymentRequest, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"create-payment:{ip}", 10, 600)
+    if not is_valid_package(payload.paket):
+        raise HTTPException(status_code=400, detail=f"Paket tidak valid. Pilihan: {', '.join(PACKAGE_PRICES.keys())}")
+    harga, label = price_for(payload.paket)
+
+    order_id = f"GK-{uuid.uuid4().hex[:12].upper()}"
+
+    # Persist pending order BEFORE calling Midtrans
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as session:
+        order = Order(
+            id=order_id,
+            nama=payload.nama.strip(),
+            email=payload.email.strip().lower(),
+            whatsapp=payload.whatsapp.strip(),
+            paket=payload.paket,
+            harga=harga,
+            status="pending",
+            created_at=now,
+        )
+        session.add(order)
+        await session.commit()
+
+    # Request Snap token
+    try:
+        snap = await create_snap_transaction(
+            order_id=order_id,
+            gross_amount=harga,
+            item_name=label,
+            nama=payload.nama,
+            email=payload.email,
+            whatsapp=payload.whatsapp,
+        )
+    except Exception as e:
+        logger.exception("Midtrans create transaction failed")
+        # Mark order as failure so it can be retried
+        async with AsyncSessionLocal() as session:
+            o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+            if o:
+                o.status = "failure"
+                await session.commit()
+        raise HTTPException(status_code=502, detail=f"Gagal membuat transaksi: {str(e)[:200]}")
+
+    return {
+        "order_id": order_id,
+        "snap_token": snap["token"],
+        "redirect_url": snap.get("redirect_url"),
+        "paket": payload.paket,
+        "harga": harga,
+        "label": label,
+        "client_key": os.environ.get("MIDTRANS_CLIENT_KEY", ""),
+        "is_production": os.environ.get("MIDTRANS_IS_PRODUCTION", "false").lower() in ("1", "true", "yes"),
+    }
+
+
+@api_router.post("/midtrans-webhook")
+async def midtrans_webhook(request: Request):
+    """Receive Midtrans HTTP notification, verify signature, update order, generate access_token on success."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    order_id = str(body.get("order_id", ""))
+    status_code = str(body.get("status_code", ""))
+    gross_amount = str(body.get("gross_amount", ""))
+    signature_key = str(body.get("signature_key", ""))
+    transaction_status = body.get("transaction_status", "")
+    fraud_status = body.get("fraud_status", "")
+    payment_type = body.get("payment_type", "")
+    transaction_id = body.get("transaction_id", "")
+
+    if not verify_signature(order_id, status_code, gross_amount, signature_key):
+        logger.warning(f"Webhook signature mismatch for order {order_id}")
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    internal_status = map_status(transaction_status, fraud_status)
+
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+        if not o:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        # Validate gross_amount matches our recorded harga (defense against tampering)
+        try:
+            paid_amount = int(float(gross_amount))
+        except ValueError:
+            paid_amount = -1
+        if paid_amount != o.harga and internal_status == "success":
+            logger.error(f"Amount mismatch order={order_id} expected={o.harga} got={paid_amount}")
+            o.status = "failure"
+            o.raw_notification = json.dumps(body)
+            await session.commit()
+            raise HTTPException(status_code=400, detail="Amount mismatch")
+
+        o.status = internal_status
+        o.payment_type = payment_type or o.payment_type
+        o.midtrans_transaction_id = transaction_id or o.midtrans_transaction_id
+        o.raw_notification = json.dumps(body)
+
+        if internal_status == "success":
+            if not o.access_token:
+                o.access_token = secrets.token_urlsafe(24)
+            if not o.paid_at:
+                o.paid_at = datetime.now(timezone.utc)
+
+        await session.commit()
+        access_token = o.access_token
+        paket = o.paket
+
+    logger.info(f"Webhook handled order={order_id} status={internal_status}")
+    return {"ok": True, "order_id": order_id, "status": internal_status, "access_token": access_token, "paket": paket}
+
+
+@api_router.get("/verify-access")
+async def verify_access(token: str = ""):
+    """Public: verify an access token and return order info if valid + paid."""
+    if not token:
+        raise HTTPException(status_code=400, detail="Token diperlukan")
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(select(Order).where(Order.access_token == token))).scalar_one_or_none()
+        if not o:
+            raise HTTPException(status_code=404, detail="Token tidak ditemukan")
+        if o.status != "success":
+            raise HTTPException(status_code=403, detail=f"Order belum lunas (status: {o.status})")
+        return {
+            "valid": True,
+            "order_id": o.id,
+            "paket": o.paket,
+            "nama": o.nama,
+            "email": o.email,
+            "harga": o.harga,
+            "paid_at": o.paid_at.isoformat() if o.paid_at else None,
+        }
+
+
+@api_router.get("/download/pdf")
+async def download_pdf(token: str = "", request: Request = None):
+    """Public (token-gated): stream the PDF file for the buyer's paket."""
+    if request is not None:
+        ip = request.client.host if request.client else "unknown"
+        _rate_limit(f"download:{ip}", 30, 600)
+    if not token:
+        raise HTTPException(status_code=400, detail="Token diperlukan")
+
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(select(Order).where(Order.access_token == token))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="Token tidak ditemukan")
+    if o.status != "success":
+        raise HTTPException(status_code=403, detail="Order belum lunas")
+
+    # Resolve file path
+    if o.paket == "full":
+        fname = "gubernur-konten-full.pdf"
+        display = "Gubernur Konten — Full Buku.pdf"
+    else:
+        # "bab-2" .. "bab-7"
+        fname = f"{o.paket}.pdf"
+        n = o.paket.split("-", 1)[1] if "-" in o.paket else "?"
+        display = f"Gubernur Konten — Bab {n}.pdf"
+
+    fpath = FILES_DIR / fname
+    if not fpath.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=f"File '{fname}' belum tersedia di server. Hubungi admin di WA 0899-855-3333.",
+        )
+    return FileResponse(
+        path=str(fpath),
+        media_type="application/pdf",
+        filename=display,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+# ---------- Admin: list orders ----------
+@api_router.get("/admin/orders")
+async def admin_list_orders(limit: int = 200, _: str = Depends(require_admin)):
+    async with AsyncSessionLocal() as session:
+        rows = (await session.execute(select(Order).order_by(Order.created_at.desc()).limit(limit))).scalars().all()
+    return [order_to_dict(r) for r in rows]
+
+
 app.include_router(api_router)
 
 app.add_middleware(
@@ -393,6 +614,12 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_init():
+    await init_db()
+    logger.info("SQLite initialized for orders table")
 
 
 @app.on_event("shutdown")
