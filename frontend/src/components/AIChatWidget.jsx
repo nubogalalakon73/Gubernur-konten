@@ -78,10 +78,14 @@ export default function AIChatWidget() {
 
   const handleAction = (action) => {
     if (action.type === "navigate-bab1") {
-      // small delay so user sees the message
       setTimeout(() => {
         setOpen(false);
         navigate("/bab1");
+      }, 700);
+    } else if (action.type === "navigate-checkout") {
+      setTimeout(() => {
+        setOpen(false);
+        navigate(`/checkout?paket=${action.paket || "full"}`);
       }, 700);
     } else if (action.type === "open-wa" && action.url) {
       setTimeout(() => {

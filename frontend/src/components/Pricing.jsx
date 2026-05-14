@@ -1,8 +1,7 @@
-import { Check, Sparkles, BookOpen, ArrowRight, MessageCircle, Coffee } from "lucide-react";
+import { Check, Sparkles, BookOpen, ArrowRight, Coffee } from "lucide-react";
 import { Link } from "react-router-dom";
 import { trackCta } from "@/lib/api";
 import { useReveal } from "@/lib/useReveal";
-import { openChat } from "@/lib/chatEvents";
 
 const PLANS = [
   {
@@ -53,8 +52,6 @@ export default function Pricing() {
 
   const onSelect = (plan) => {
     trackCta(`pricing-${plan.id}`, "pricing");
-    if (plan.id === "perbab") openChat({ intent: "select-perbab" });
-    else openChat({ intent: "select-full" });
   };
 
   return (
@@ -154,15 +151,16 @@ export default function Pricing() {
                   <p className="mt-6 text-xs italic text-[#F4F0E8]/55 font-display">{p.note}</p>
                 )}
 
-                <button
+                <Link
+                  to={`/checkout?paket=${p.id === "full" ? "full" : "bab-4"}`}
                   onClick={() => onSelect(p)}
                   data-testid={`pricing-cta-${p.id}`}
                   className={`mt-7 ${p.featured ? "btn-primary" : "btn-ghost"} justify-center`}
                 >
-                  <MessageCircle className="w-4 h-4" strokeWidth={1.8} />
+                  <Coffee className="w-4 h-4" strokeWidth={1.8} />
                   {p.cta}
                   <ArrowRight className="w-4 h-4" />
-                </button>
+                </Link>
               </div>
             );
           })}

@@ -131,14 +131,36 @@ export function respond(intent, ctx = {}) {
     case "select-perbab":
       return {
         text:
-          "Paket Per Bab — Rp 10.000 per bab. Pilih bab yang ingin dibongkar:\n• Bab 2 · Dedi Mulyadi dan Kelahiran Genre\n• Bab 3 · Empat Gubernur, Empat Strategi\n• Bab 4 · Tujuh Dakwaan terhadap Gubernur Konten 🔥\n• Bab 5 · Pembelaan dan Epistemologi Politik Lokal\n• Bab 6 · AI, Deepfake, dan Masa Depan Demokrasi\n• Bab 7 · Setelah Panggung Ditutup\n\nKonfirmasi pilihan & pembayaran via Admin.",
-        quickReplies: QR_PAYMENT,
+          "Paket Per Bab — Rp 10.000 per bab. Pilih bab yang ingin dibongkar:\n• Bab 2 · Dedi Mulyadi dan Kelahiran Genre\n• Bab 3 · Empat Gubernur, Empat Strategi\n• Bab 4 · Tujuh Dakwaan terhadap Gubernur Konten 🔥\n• Bab 5 · Pembelaan dan Epistemologi Politik Lokal\n• Bab 6 · AI, Deepfake dan Masa Depan Demokrasi\n• Bab 7 · Setelah Panggung Ditutup\n\nKlik tombol di bawah untuk lanjut ke halaman traktir.",
+        quickReplies: [
+          { id: "go-checkout-perbab", label: "☕ Lanjut Checkout", intent: "go-checkout-perbab" },
+          { id: "go-wa", label: "💬 Tanya Admin", intent: "wa" },
+          QR_BACK,
+        ],
       };
 
     case "select-full":
       return {
-        text: PURCHASE_FLOW_TEXT + "\n\nAnda memilih *Full Buku Rp 55.000* — pilih metode traktir:",
-        quickReplies: QR_PAYMENT,
+        text: PURCHASE_FLOW_TEXT + "\n\nAnda memilih *Full Buku Rp 55.000*. Klik tombol di bawah untuk lanjut ke pembayaran.",
+        quickReplies: [
+          { id: "go-checkout-full", label: "☕ Lanjut Checkout", intent: "go-checkout-full" },
+          { id: "go-wa", label: "💬 Tanya Admin", intent: "wa" },
+          QR_BACK,
+        ],
+      };
+
+    case "go-checkout-perbab":
+      return {
+        text: "Membuka halaman checkout untuk pilih bab…",
+        quickReplies: INITIAL_QUICK_REPLIES,
+        action: { type: "navigate-checkout", paket: "bab-4" },
+      };
+
+    case "go-checkout-full":
+      return {
+        text: "Membuka halaman checkout Full Buku Rp 55.000…",
+        quickReplies: INITIAL_QUICK_REPLIES,
+        action: { type: "navigate-checkout", paket: "full" },
       };
 
     case "pay-transfer":

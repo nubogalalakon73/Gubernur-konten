@@ -8,6 +8,8 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Bab1 from "@/pages/Bab1";
 import Chapter from "@/pages/Chapter";
 import BabAll from "@/pages/BabAll";
+import Checkout from "@/pages/Checkout";
+import Download from "@/pages/Download";
 import AIChatWidget from "@/components/AIChatWidget";
 
 function App() {
@@ -19,6 +21,8 @@ function App() {
           <Route path="/bab1" element={<Bab1 />} />
           <Route path="/bab/all" element={<BabAll />} />
           <Route path="/bab/:n" element={<Chapter />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/download" element={<Download />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
         </Routes>

@@ -591,6 +591,27 @@ async def download_pdf(token: str = "", request: Request = None):
     )
 
 
+@api_router.get("/order-status")
+async def order_status(order_id: str = "", email: str = ""):
+    """Lookup an order by id + email. Returns status + access_token if successful.
+    Email match is required to prevent enumeration of access tokens."""
+    if not order_id or not email:
+        raise HTTPException(status_code=400, detail="order_id dan email diperlukan")
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+    if not o or o.email.lower() != email.strip().lower():
+        raise HTTPException(status_code=404, detail="Order tidak ditemukan")
+    return {
+        "order_id": o.id,
+        "status": o.status,
+        "paket": o.paket,
+        "harga": o.harga,
+        "nama": o.nama,
+        "access_token": o.access_token if o.status == "success" else None,
+        "paid_at": o.paid_at.isoformat() if o.paid_at else None,
+    }
+
+
 # ---------- Admin: list orders ----------
 @api_router.get("/admin/orders")
 async def admin_list_orders(limit: int = 200, _: str = Depends(require_admin)):
