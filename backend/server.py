@@ -1,21 +1,17 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request
-from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-import io
-import csv
 import time
 import secrets
 from collections import defaultdict, deque
 from pathlib import Path
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
-import asyncio
 import httpx
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -35,30 +31,6 @@ api_router = APIRouter(prefix="/api")
 
 
 # ---------- Models ----------
-class Lead(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    email: str
-    whatsapp: str
-    profession: Optional[str] = ""
-    city: Optional[str] = ""
-    interest: Optional[str] = ""
-    source: Optional[str] = "landing"
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-
-class LeadCreate(BaseModel):
-    name: str
-    email: str
-    whatsapp: str
-    profession: Optional[str] = ""
-    city: Optional[str] = ""
-    interest: Optional[str] = ""
-    source: Optional[str] = "landing"
-
-
 class CtaEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -82,73 +54,14 @@ async def root():
 @api_router.get("/stats")
 async def get_stats():
     """Public stats for social proof."""
-    total_leads = await db.leads.count_documents({})
     total_cta = await db.cta_events.count_documents({})
     # Friendly baseline for new microsite social proof
     return {
-        "readers": 4280 + total_leads,
-        "downloads": 1742 + total_leads,
+        "readers": 4280,
+        "downloads": 1742,
         "rating": 4.9,
-        "leads": total_leads,
         "cta_clicks": total_cta,
     }
-
-
-@api_router.post("/leads", response_model=Lead)
-async def create_lead(payload: LeadCreate, request: Request):
-    ip = request.client.host if request.client else "unknown"
-    _rate_limit(f"leads:{ip}", 5, 600)  # 5 per 10 min per IP
-    # Basic dedupe by email within last day not enforced; allow re-submit but track
-    lead = Lead(**payload.model_dump())
-    doc = lead.model_dump()
-    await db.leads.insert_one(doc)
-    logger.info(f"New lead captured: {lead.email}")
-    # Fire and forget welcome email
-    asyncio.create_task(send_email(lead.email, "Selamat datang — Gubernur Konten", _welcome_email_html(lead.name, lead.interest or "")))
-    return lead
-
-
-@api_router.get("/leads", response_model=List[Lead])
-async def list_leads(limit: int = 500):
-    cursor = db.leads.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
-    items = await cursor.to_list(length=limit)
-    return items
-
-
-@api_router.get("/leads/export.csv")
-async def export_leads_csv():
-    cursor = db.leads.find({}, {"_id": 0}).sort("created_at", -1)
-    rows = await cursor.to_list(length=10000)
-
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["id", "name", "email", "whatsapp", "profession", "city", "interest", "source", "created_at"])
-    for r in rows:
-        writer.writerow([
-            r.get("id", ""),
-            r.get("name", ""),
-            r.get("email", ""),
-            r.get("whatsapp", ""),
-            r.get("profession", ""),
-            r.get("city", ""),
-            r.get("interest", ""),
-            r.get("source", ""),
-            r.get("created_at", ""),
-        ])
-    buffer.seek(0)
-    return StreamingResponse(
-        iter([buffer.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=gubernur-konten-leads.csv"},
-    )
-
-
-@api_router.delete("/leads/{lead_id}")
-async def delete_lead(lead_id: str):
-    result = await db.leads.delete_one({"id": lead_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return {"deleted": True, "id": lead_id}
 
 
 @api_router.post("/cta", response_model=CtaEvent)
@@ -316,28 +229,6 @@ async def send_email(to: str, subject: str, html: str) -> bool:
     except Exception:
         logger.exception("Resend send failed")
         return False
-
-
-def _welcome_email_html(name: str, interest: str) -> str:
-    pkg_line = f"<p><strong>Minat Anda:</strong> {interest}</p>" if interest else ""
-    return f"""
-    <div style="font-family: -apple-system, sans-serif; background: #0B0F14; color: #F4F0E8; padding: 32px;">
-      <h2 style="color: #F4F0E8; font-family: Georgia, serif;">Halo {name},</h2>
-      <p style="color: #F4F0E8; line-height: 1.7;">
-        Terima kasih telah mendaftar untuk ebook <strong>Gubernur Konten — Siapa Dalang, Siapa Wayang?</strong>
-      </p>
-      <p style="color: #F4F0E8; line-height: 1.7;">
-        Tim kami akan menghubungi Anda via WhatsApp dalam 24 jam untuk konfirmasi pembelian dan mengirim link akses.
-      </p>
-      {pkg_line}
-      <p style="color: #F4F0E8;">Sementara itu, Anda bisa baca <strong>Bab 1 gratis</strong> sekarang:</p>
-      <p><a href="https://gubernur-konten.preview.emergentagent.com/bab1" style="display:inline-block; background:#B8211A; color:#F4F0E8; padding:14px 24px; text-decoration:none; font-weight:bold; letter-spacing:0.1em;">BACA BAB 1 GRATIS →</a></p>
-      <hr style="border:none; border-top:1px solid rgba(244,240,232,0.15); margin: 32px 0;" />
-      <p style="color: rgba(244,240,232,0.6); font-size: 12px;">
-        Salam,<br/>Tim Gubernur Konten<br/>Didi Subandi & Yully Ambarsih Ekawardhani
-      </p>
-    </div>
-    """
 
 
 def _token_email_html(name: str, chapter_label: str, link: str) -> str:

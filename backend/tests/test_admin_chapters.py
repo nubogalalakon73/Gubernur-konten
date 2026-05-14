@@ -146,22 +146,6 @@ class TestAdminTokens:
         assert found and found[0]["revoked"] is True
 
 
-# ---------- Leads regression + welcome email (no key) ----------
-class TestLeadsRegression:
-    def test_create_lead_ok(self):
-        payload = {
-            "name": "TEST Regression",
-            "email": "TEST_regression@example.com",
-            "whatsapp": "+62800000000",
-            "interest": "Bab 2",
-        }
-        r = requests.post(f"{BASE_URL}/api/leads", json=payload, timeout=15)
-        assert r.status_code == 200, r.text
-        data = r.json()
-        assert data["email"] == payload["email"]
-        assert "id" in data
-
-
 # ---------- Rate-limit tests (run LAST per instructions) ----------
 class TestRateLimitsZ:
     def test_admin_login_rate_limit(self):
@@ -170,18 +154,3 @@ class TestRateLimitsZ:
         for _ in range(6):
             last = requests.post(f"{BASE_URL}/api/admin/login", json={"password": "WRONG"}, timeout=10)
         assert last.status_code == 429, f"expected 429 got {last.status_code}: {last.text}"
-
-    def test_leads_rate_limit(self):
-        """6th lead in 10 min from same IP → 429."""
-        last = None
-        for i in range(6):
-            last = requests.post(
-                f"{BASE_URL}/api/leads",
-                json={
-                    "name": f"TEST RL {i}",
-                    "email": f"TEST_rl{i}_{int(time.time())}@example.com",
-                    "whatsapp": "+62800000000",
-                },
-                timeout=10,
-            )
-        assert last.status_code == 429, f"expected 429 got {last.status_code}"

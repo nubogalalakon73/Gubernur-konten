@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "Apakah tersedia versi cetak?",
-    a: "Saat ini fokus pada versi digital (PDF, EPUB, Flipbook). Versi cetak terbatas direncanakan rilis pertengahan 2026 — daftarkan di formulir pre-order untuk diberi tahu pertama.",
+    a: "Saat ini fokus pada versi digital (PDF, EPUB, Flipbook). Pembelian dilakukan melalui AI Assistant atau WhatsApp Admin, lalu akses dikirim langsung.",
   },
   {
     q: "Bisa dibaca di HP?",

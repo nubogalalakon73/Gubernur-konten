@@ -1,27 +1,9 @@
-import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { trackCta } from "@/lib/api";
 import { useReveal } from "@/lib/useReveal";
 
-function useCountdown(targetMs) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const diff = Math.max(0, targetMs - now);
-  const d = Math.floor(diff / 86400000);
-  const h = Math.floor((diff / 3600000) % 24);
-  const m = Math.floor((diff / 60000) % 60);
-  const s = Math.floor((diff / 1000) % 60);
-  return { d, h, m, s };
-}
-
 export default function Urgency() {
   const [ref, vis] = useReveal(0.1);
-  // 14 days from page load
-  const [target] = useState(() => Date.now() + 14 * 86400000);
-  const { d, h, m, s } = useCountdown(target);
 
   const onClick = () => {
     trackCta("urgency-buy", "urgency");
@@ -39,7 +21,7 @@ export default function Urgency() {
 
       <div className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 lg:px-12 text-center reveal ${vis ? "is-visible" : ""}`}>
         <div className="gk-ribbon mx-auto mb-6" style={{ borderColor: "rgba(244,240,232,0.3)" }}>
-          Edisi Terbatas · Awal Rilis 2026
+          Edisi 2026
         </div>
         <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black text-[#F4F0E8] leading-[1.05] text-shadow-cinematic">
           Di era politik <span className="italic text-[#C9920A]">algoritma</span>,
@@ -49,29 +31,14 @@ export default function Urgency() {
           <span className="text-[#F4F0E8]">menguasai </span><span className="text-[#C9920A] italic">persepsi.</span>
         </h2>
 
-        <div
-          className="mt-12 grid grid-cols-4 max-w-xl mx-auto gap-2 sm:gap-4"
-          data-testid="urgency-countdown"
-        >
-          {[
-            { v: d, l: "Hari" },
-            { v: h, l: "Jam" },
-            { v: m, l: "Menit" },
-            { v: s, l: "Detik" },
-          ].map((b) => (
-            <div key={b.l} className="bg-[#0B0F14]/60 border border-white/10 backdrop-blur-sm py-4 sm:py-6">
-              <div className="font-display text-3xl sm:text-5xl font-black text-[#F4F0E8] tabular-nums">
-                {String(b.v).padStart(2, "0")}
-              </div>
-              <div className="overline text-[#C9920A] text-[10px] mt-1">{b.l}</div>
-            </div>
-          ))}
-        </div>
+        <p className="mt-8 max-w-2xl mx-auto text-[#F4F0E8]/70 leading-relaxed">
+          Baca dari mereka yang membedah panggung itu — bukan dari ringkasan media, bukan dari opini X, melainkan dari analisis dalam yang sudah dirumuskan.
+        </p>
 
         <button
           onClick={onClick}
           data-testid="urgency-cta"
-          className="mt-12 btn-primary text-base"
+          className="mt-10 btn-primary text-base"
         >
           Miliki Ebook Sekarang
           <ArrowRight className="w-4 h-4" />

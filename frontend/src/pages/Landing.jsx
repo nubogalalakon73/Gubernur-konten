@@ -8,7 +8,6 @@ import Testimonials from "@/components/Testimonials";
 import Formats from "@/components/Formats";
 import Pricing from "@/components/Pricing";
 import AIAssistant from "@/components/AIAssistant";
-import LeadForm from "@/components/LeadForm";
 import FAQ from "@/components/FAQ";
 import Urgency from "@/components/Urgency";
 import Footer from "@/components/Footer";
@@ -27,7 +26,6 @@ export default function Landing() {
         <Formats />
         <Pricing />
         <AIAssistant />
-        <LeadForm />
         <FAQ />
         <Urgency />
       </main>
