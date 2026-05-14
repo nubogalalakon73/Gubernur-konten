@@ -72,7 +72,7 @@ export default function Chapters() {
             </p>
             <div className="mt-8 animated-line" />
             <div className="mt-6 font-mono text-xs text-[#F4F0E8]/40">
-              ESTIMATED READ TIME · 4 HRS · 248 PAGES
+              ESTIMATED READ TIME · 4 HRS · 138 PAGES
             </div>
           </div>
 
