@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from sqlalchemy import select
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from import openai.llm.chat import LlmChat, UserMessage
 from chat_prompt import SYSTEM_PROMPT
 from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
 from db_sqlite import init_db, AsyncSessionLocal, Order, order_to_dict
