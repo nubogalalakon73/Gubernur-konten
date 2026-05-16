@@ -17,7 +17,10 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from sqlalchemy import select
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# --- PENGGANTI EMERGENT INTEGRATIONS ---
+from anthropic import AsyncAnthropic
+# ---------------------------------------
+
 from chat_prompt import SYSTEM_PROMPT
 from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
 from db_sqlite import init_db, AsyncSessionLocal, Order, order_to_dict
@@ -126,15 +129,18 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     system = _build_system_with_history(payload.history or [])
 
     try:
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=session_id,
-            system_message=system,
-        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-
-        user_msg = UserMessage(text=payload.message)
-        reply = await chat.send_message(user_msg)
-        reply_text = reply if isinstance(reply, str) else str(reply)
+        # --- MULAI KODE BARU MENGGUNAKAN ANTHROPIC SDK ---
+        client_llm = AsyncAnthropic(api_key=api_key)
+        response = await client_llm.messages.create(
+            model="claude-3-5-sonnet-latest",
+            max_tokens=1024,
+            system=system,
+            messages=[
+                {"role": "user", "content": payload.message}
+            ]
+        )
+        reply_text = response.content[0].text
+        # --- AKHIR KODE BARU ---
     except Exception as e:
         logger.exception("LLM chat error")
         raise HTTPException(status_code=502, detail=f"Chat backend error: {str(e)[:200]}")
