@@ -2,5 +2,7 @@
   "buildCommand": "yarn build",
   "outputDirectory": "frontend/build",
   "installCommand": "yarn install",
-  ...
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
