@@ -83,7 +83,7 @@ export default function Chapter() {
       try {
         e.clipboardData.setData(
           "text/plain",
-          `© Gubernur Konten — ${data?.title || ""}. Penulis: Didi Subandi & Yully Ambarsih Ekawardhani.`
+          `© Gubernur Konten — ${data?.title || ""}. Penulis: Didi Subandi,S.Sn.,MM & Dr.Yully Ambarsih Ekawardhani,M.Sn`
         );
       } catch {}
     };

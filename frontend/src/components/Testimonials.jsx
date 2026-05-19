@@ -4,7 +4,7 @@ import { useReveal } from "@/lib/useReveal";
 const TESTIMONIALS = [
   {
     name: "Dr. Rahmat Hidayat",
-    role: "Akademisi · Komunikasi Politik UI",
+    role: "Akademisi · Komunikasi Politik",
     text: "Pemetaan yang jujur dan menggigit. Buku ini akan jadi rujukan wajib di mata kuliah komunikasi politik di tahun-tahun ke depan.",
   },
   {
@@ -14,7 +14,7 @@ const TESTIMONIALS = [
   },
   {
     name: "Bambang S.",
-    role: "Dosen FISIP Unpad",
+    role: "Dosen FISIP",
     text: "Kerangka 'dakwaan–pembelaan–sintesis' membuat buku ini bukan polemik, tapi proses berpikir. Itu langka di literatur politik kita.",
   },
   {
