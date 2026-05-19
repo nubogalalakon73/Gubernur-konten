@@ -1,1 +1,9 @@
-
+{
+  "name": "gubernur-konten",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && yarn install && yarn build",
+    "start": "cd frontend && yarn start"
+  }
+}
