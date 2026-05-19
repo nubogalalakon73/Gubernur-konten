@@ -1,5 +1,10 @@
 {
-  "buildCommand": "cd frontend && yarn install && yarn build",
-  "outputDirectory": "frontend/build",
-  "installCommand": "echo 'skip root install'"
+  "name": "gubernur-konten",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install-frontend": "cd frontend && yarn install",
+    "build": "cd frontend && yarn build",
+    "start": "cd frontend && yarn start"
+  }
 }
