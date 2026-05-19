@@ -22,86 +22,13 @@ export default function AIChatWidget() {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
 
-  // Open from external event (Pricing, Hero, etc.)
-  useEffect(() => {
-    return onOpenChat((detail) => {
-      setOpen(true);
-      setPulse(false);
-      if (detail?.intent) {
-        // small delay so greeting renders first if needed
-        setTimeout(() => handleIntent(detail.intent), 350);
-      } else if (detail?.text) {
-        setTimeout(() => userSay(detail.text), 350);
-      }
-    });
-    }, [handleIntent, userSay]);
-
-  // Greeting auto when first opened
-  useEffect(() => {
-    if (open && !hasGreeted) {
-      setHasGreeted(true);
-      setTyping(true);
-      const t = setTimeout(() => {
-        const g = greeting();
-        setMessages([{ role: "bot", text: g.text }]);
-        setQuickReplies(g.quickReplies);
-        setTyping(false);
-      }, 900);
-      return () => clearTimeout(t);
-    }
-  }, [open, hasGreeted]);
-
-  // Auto scroll
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight + 999;
-    }
-  }, [messages, typing]);
-
-  // Pulse to attract attention after 10s
-  useEffect(() => {
-    if (open) return;
-    const t = setTimeout(() => setPulse(true), 10_000);
-    return () => clearTimeout(t);
-  }, [open]);
-
-  const sendBot = (resp) => {
-    setTyping(true);
-    setQuickReplies([]);
-    setTimeout(() => {
-      setMessages((m) => [...m, { role: "bot", text: resp.text }]);
-      setQuickReplies(resp.quickReplies || []);
-      setTyping(false);
-      if (resp.action) handleAction(resp.action);
-    }, 700 + Math.min(resp.text.length * 6, 900));
-  };
-
-  const handleAction = (action) => {
-    if (action.type === "navigate-bab1") {
-      setTimeout(() => {
-        setOpen(false);
-        navigate("/bab1");
-      }, 700);
-    } else if (action.type === "navigate-checkout") {
-      setTimeout(() => {
-        setOpen(false);
-        navigate(`/checkout?paket=${action.paket || "full"}`);
-      }, 700);
-    } else if (action.type === "open-wa" && action.url) {
-      setTimeout(() => {
-        window.open(action.url, "_blank", "noopener");
-      }, 500);
-    }
-  };
-
   const persistSession = (sid) => {
     if (!sid) return;
     setSessionId(sid);
     try { localStorage.setItem(SESSION_KEY, sid); } catch {}
   };
 
-  // Call the LLM backend for free-text messages.
-  const callLlm = async (text, currentMessages) => {
+  const callLlm = useCallback(async (text, currentMessages) => {
     setTyping(true);
     setQuickReplies([]);
     try {
@@ -131,9 +58,8 @@ export default function AIChatWidget() {
     } finally {
       setTyping(false);
     }
-  };
+  }, [sessionId]);
 
-  // Keywords that we keep rule-based (faster + deterministic for purchase flows).
   const FAST_INTENTS = new Set([
     "bab1",
     "harga",
@@ -145,7 +71,36 @@ export default function AIChatWidget() {
     "pay-qris",
   ]);
 
-  const userSay = (text) => {
+  const handleAction = useCallback((action) => {
+    if (action.type === "navigate-bab1") {
+      setTimeout(() => {
+        setOpen(false);
+        navigate("/bab1");
+      }, 700);
+    } else if (action.type === "navigate-checkout") {
+      setTimeout(() => {
+        setOpen(false);
+        navigate(`/checkout?paket=${action.paket || "full"}`);
+      }, 700);
+    } else if (action.type === "open-wa" && action.url) {
+      setTimeout(() => {
+        window.open(action.url, "_blank", "noopener");
+      }, 500);
+    }
+  }, [navigate]);
+
+  const sendBot = useCallback((resp) => {
+    setTyping(true);
+    setQuickReplies([]);
+    setTimeout(() => {
+      setMessages((m) => [...m, { role: "bot", text: resp.text }]);
+      setQuickReplies(resp.quickReplies || []);
+      setTyping(false);
+      if (resp.action) handleAction(resp.action);
+    }, 700 + Math.min(resp.text.length * 6, 900));
+  }, [handleAction]);
+
+  const userSay = useCallback((text) => {
     if (!text.trim()) return;
     const newMsg = { role: "user", text };
     const newMessages = [...messages, newMsg];
@@ -155,23 +110,58 @@ export default function AIChatWidget() {
 
     const intent = intentOf(text);
     if (FAST_INTENTS.has(intent)) {
-      // Fast rule-based path for transactional intents
       sendBot(respond(intent));
     } else {
-      // Free-text → LLM
       callLlm(text, newMessages.slice(0, -1));
     }
-  };
+  }, [messages, sendBot, callLlm]);
 
-  const handleIntent = (intent) => {
-    // Echo the chosen label as a user message if it matches a quick reply
+  const handleIntent = useCallback((intent) => {
     const qr = quickReplies.find((q) => q.intent === intent);
     if (qr) {
       setMessages((m) => [...m, { role: "user", text: qr.label }]);
     }
     trackCta(`ai-intent-${intent}`, "ai-widget");
     sendBot(respond(intent));
-  };
+  }, [quickReplies, sendBot]);
+
+  useEffect(() => {
+    return onOpenChat((detail) => {
+      setOpen(true);
+      setPulse(false);
+      if (detail?.intent) {
+        setTimeout(() => handleIntent(detail.intent), 350);
+      } else if (detail?.text) {
+        setTimeout(() => userSay(detail.text), 350);
+      }
+    });
+  }, [handleIntent, userSay]);
+
+  useEffect(() => {
+    if (open && !hasGreeted) {
+      setHasGreeted(true);
+      setTyping(true);
+      const t = setTimeout(() => {
+        const g = greeting();
+        setMessages([{ role: "bot", text: g.text }]);
+        setQuickReplies(g.quickReplies);
+        setTyping(false);
+      }, 900);
+      return () => clearTimeout(t);
+    }
+  }, [open, hasGreeted]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight + 999;
+    }
+  }, [messages, typing]);
+
+  useEffect(() => {
+    if (open) return;
+    const t = setTimeout(() => setPulse(true), 10_000);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -180,7 +170,6 @@ export default function AIChatWidget() {
 
   return (
     <>
-      {/* Floating launcher */}
       {!open && (
         <button
           onClick={() => { setOpen(true); setPulse(false); trackCta("ai-open", "ai-widget"); }}
@@ -198,13 +187,11 @@ export default function AIChatWidget() {
         </button>
       )}
 
-      {/* Chat panel */}
       {open && (
         <div
           className="fixed z-50 bottom-0 right-0 sm:bottom-5 sm:right-5 w-full sm:w-[400px] sm:max-w-[92vw] h-[100dvh] sm:h-[620px] sm:max-h-[80vh] flex flex-col bg-[#0B0F14] sm:rounded-xl border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] overflow-hidden"
           data-testid="ai-chat-panel"
         >
-          {/* Header */}
           <div className="relative px-5 py-4 flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-[#131A22] to-[#0B0F14]">
             <div className="relative">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B8211A] to-[#8A1713] grid place-items-center">
@@ -226,7 +213,6 @@ export default function AIChatWidget() {
             </button>
           </div>
 
-          {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 space-y-3" data-testid="ai-chat-messages">
             {messages.map((m, i) => (
               <div
@@ -257,7 +243,6 @@ export default function AIChatWidget() {
             )}
           </div>
 
-          {/* Quick replies */}
           {quickReplies.length > 0 && (
             <div className="px-4 pb-3 pt-1 flex flex-wrap gap-2" data-testid="ai-quick-replies">
               {quickReplies.map((q) => (
@@ -273,7 +258,6 @@ export default function AIChatWidget() {
             </div>
           )}
 
-          {/* Composer */}
           <form
             onSubmit={onSubmit}
             className="px-4 py-3 border-t border-white/10 flex items-center gap-2 bg-[#0E141B]"
