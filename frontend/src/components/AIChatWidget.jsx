@@ -34,7 +34,7 @@ export default function AIChatWidget() {
         setTimeout(() => userSay(detail.text), 350);
       }
     });
-  }, []);
+    }, [handleIntent, userSay]);
 
   // Greeting auto when first opened
   useEffect(() => {
