@@ -3,3 +3,8 @@
   "outputDirectory": "frontend/build",
   "installCommand": "echo 'skip root install'"
 }
+EOF
+
+git add vercel.json
+git commit -m "Fix Vercel build - direct to frontend directory"
+git push origin main
