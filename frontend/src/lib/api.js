@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const BACKEND_URL = "https://gubernur-konten-backend.up.railway.app";
 export const API = `${BACKEND_URL}/api`;
 
 export const WA_NUMBER = "628998553333";
