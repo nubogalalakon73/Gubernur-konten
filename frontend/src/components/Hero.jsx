@@ -1,24 +1,12 @@
 import { ArrowRight, MessageCircle, Star, Download, Users, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
-import { COVER_FRONT, COVER_BACK, WA_LINK, trackCta, API } from "@/lib/api";
+import { COVER_FRONT, COVER_BACK, WA_LINK, trackCta } from "@/lib/api";
 import { useReveal } from "@/lib/useReveal";
-import { useEffect, useState } from "react";
-import axios from "axios";
+
+const STATS = { readers: 4280, downloads: 1742, rating: 4.9 };
 
 export default function Hero() {
   const [ref, visible] = useReveal(0.05);
-  const [stats, setStats] = useState({ readers: 4280, downloads: 1742, rating: 4.9 });
-
-  useEffect(() => {
-    axios.get(`${API}/stats`).then((r) => {
-      const d = r.data || {};
-      setStats(prev => ({
-        readers: d.readers ?? prev.readers,
-        downloads: d.downloads ?? prev.downloads,
-        rating: d.rating ?? prev.rating,
-      }));
-    }).catch(() => {});
-  }, []);
 
   const scrollToPricing = () => {
     trackCta("hero-beli-sekarang", "hero");
@@ -26,12 +14,8 @@ export default function Hero() {
   };
 
   return (
-    <section
-      id="hero"
-      ref={ref}
-      data-testid="hero-section"
-      className="relative min-h-screen overflow-hidden flex items-center pt-28 pb-20 grain"
-    >
+    <section id="hero" ref={ref} data-testid="hero-section"
+      className="relative min-h-screen overflow-hidden flex items-center pt-28 pb-20 grain">
       <div className="absolute inset-0 dot-grid opacity-50" />
       <div className="hero-vignette" />
       <div className="spotlight" style={{ top: "15%", left: "5%" }} />
@@ -61,12 +45,13 @@ export default function Hero() {
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" strokeWidth={2} />
               </button>
               <Link to="/bab1" onClick={() => trackCta("hero-bab1", "hero")} data-testid="hero-cta-bab1" className="btn-gold">
-                <BookOpen className="w-4 h-4" strokeWidth={1.7} />
-                Baca Bab 1 Gratis
+                <BookOpen className="w-4 h-4" strokeWidth={1.7} />Baca Bab 1 Gratis
               </Link>
-              <a href={WA_LINK("Halo, saya tertarik dengan ebook Gubernur Konten. Mohon info untuk mentraktir.")} target="_blank" rel="noreferrer" onClick={() => trackCta("hero-wa-consult", "hero")} data-testid="hero-cta-secondary" className="btn-ghost">
-                <MessageCircle className="w-4 h-4" strokeWidth={1.7} />
-                Konsultasi WhatsApp
+              <a href={WA_LINK("Halo, saya tertarik dengan ebook Gubernur Konten. Mohon info untuk mentraktir.")}
+                target="_blank" rel="noreferrer"
+                onClick={() => trackCta("hero-wa-consult", "hero")}
+                data-testid="hero-cta-secondary" className="btn-ghost">
+                <MessageCircle className="w-4 h-4" strokeWidth={1.7} />Konsultasi WhatsApp
               </a>
             </div>
 
@@ -74,7 +59,7 @@ export default function Hero() {
               <div data-testid="hero-stat-readers">
                 <div className="flex items-center gap-2 text-[#C9920A]">
                   <Users className="w-4 h-4" strokeWidth={1.6} />
-                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{(stats.readers ?? 4280).toLocaleString("id-ID")}+</span>
+                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{STATS.readers.toLocaleString("id-ID")}+</span>
                 </div>
                 <div className="overline text-[#F4F0E8]/50 mt-1">Pembaca</div>
               </div>
@@ -82,7 +67,7 @@ export default function Hero() {
               <div data-testid="hero-stat-downloads">
                 <div className="flex items-center gap-2 text-[#C9920A]">
                   <Download className="w-4 h-4" strokeWidth={1.6} />
-                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{(stats.downloads ?? 1742).toLocaleString("id-ID")}+</span>
+                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{STATS.downloads.toLocaleString("id-ID")}+</span>
                 </div>
                 <div className="overline text-[#F4F0E8]/50 mt-1">Download</div>
               </div>
@@ -90,7 +75,7 @@ export default function Hero() {
               <div data-testid="hero-stat-rating">
                 <div className="flex items-center gap-2 text-[#C9920A]">
                   <Star className="w-4 h-4 fill-[#C9920A]" strokeWidth={1.6} />
-                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{stats.rating ?? 4.9}/5</span>
+                  <span className="font-display text-2xl font-bold text-[#F4F0E8]">{STATS.rating}/5</span>
                 </div>
                 <div className="overline text-[#F4F0E8]/50 mt-1">Rating Pembaca</div>
               </div>
