@@ -16,21 +16,21 @@ import AIChatWidget from "@/components/AIChatWidget";
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false: null };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
+ static getDerivedStateFromError(error) {
+  return { hasError: true, error };
+}
   render() {
     if (this.state.hasError) {
       return (
         <div style={{ minHeight: "100vh", background: "#0B0F14", color: "#F4F0E8", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, padding: 24 }}>
           <div style={{ fontSize: 48 }}>📖</div>
           <div style={{ fontFamily: "serif", fontSize: 24, fontWeight: 700 }}>Gubernur Konten</div>
-          <div style={{ color: "rgba(244,240,232,0.6)", textAlign: "center", maxWidth: 320 }}>Terjadi kesalahan. Silakan refresh halaman.</div>
-          <button onClick={() => window.location.href = "/"} style={{ marginTop: 8, padding: "10px 24px", background: "#B8211A", color: "#F4F0E8", border: "none", cursor: "pointer", fontWeight: 600 }}>
-            Kembali ke Beranda
-          </button>
+         <div style={{ color: "rgba(244,240,232,0.6)", textAlign: "center", maxWidth: 400 }}>Terjadi kesalahan teknis.</div>
+<div style={{ background: "#131A22", border: "1px solid #B8211A", padding: "12px 16px", maxWidth: 500, width: "100%", fontFamily: "monospace", fontSize: 12, color: "#ff6b6b", wordBreak: "break-all" }}>
+  {this.state.error && (this.state.error.message || String(this.state.error))}
+</div>
         </div>
       );
     }
