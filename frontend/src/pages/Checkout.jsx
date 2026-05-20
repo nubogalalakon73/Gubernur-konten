@@ -16,7 +16,8 @@ const PACKAGES = [
   { value: "bab-7", label: "Bab 7 — Penutup: Setelah Panggung Ditutup",           harga: 10000 },
 ];
 
-const fmtIDR = (n) => "Rp " + n.toLocaleString("id-ID");
+// Jika n ada nilainya, format angkanya. Jika kosong, tampilkan "0"
+const fmtIDR = (n) => "Rp " + (n ? n.toLocaleString("id-ID") : "0");
 
 export default function Checkout() {
   const [params] = useSearchParams();
