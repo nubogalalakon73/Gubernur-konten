@@ -10,7 +10,7 @@ export default function Hero() {
   const [stats, setStats] = useState({ readers: 4280, downloads: 1742, rating: 4.9 });
 
   useEffect(() => {
-    axios.get(`${API}/stats`).then((r) => setStats(r.data)).catch(() => {});
+    axios.get(`${API}/stats`).then((r) => setStats(prev => ({ ...prev, ...r.data }))).catch(() => {});
   }, []);
 
   const scrollToPricing = () => {
