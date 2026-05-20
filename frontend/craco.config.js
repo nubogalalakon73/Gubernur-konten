@@ -23,9 +23,7 @@ if (config.enableHealthCheck) {
 }
 
 let webpackConfig = {
-  babel: {
-    presets: [["react-app", { runtime: "automatic" }]],
-  },
+  // BLOK BABEL TELAH DIHAPUS UNTUK MENCEGAH DUPLIKASI
   eslint: {
     configure: {
       extends: ["plugin:react-hooks/recommended"],
@@ -40,17 +38,16 @@ let webpackConfig = {
       '@': path.resolve(__dirname, 'src'),
     },
     configure: (webpackConfig) => {
-
       // Add ignored patterns to reduce watched directories
-        webpackConfig.watchOptions = {
-          ...webpackConfig.watchOptions,
-          ignored: [
-            '**/node_modules/**',
-            '**/.git/**',
-            '**/build/**',
-            '**/dist/**',
-            '**/coverage/**',
-            '**/public/**',
+      webpackConfig.watchOptions = {
+        ...webpackConfig.watchOptions,
+        ignored: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/build/**',
+          '**/dist/**',
+          '**/coverage/**',
+          '**/public/**',
         ],
       };
 
