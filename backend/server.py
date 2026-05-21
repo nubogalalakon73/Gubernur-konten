@@ -126,7 +126,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     system = _build_system_with_history(payload.history or [])
 
     try:
-                client = anthropic.AsyncAnthropic(api_key=api_key)
+        client = anthropic.AsyncAnthropic(api_key=api_key)
         msg = await client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=1024,
