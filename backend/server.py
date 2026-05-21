@@ -135,6 +135,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
         response = await asyncio.to_thread(model.generate_content, payload.message)
         reply_text = response.text
     except Exception as e:
+
         logger.exception("LLM chat error")
         raise HTTPException(status_code=502, detail=f"Chat backend error: {str(e)[:200]}")
 
@@ -621,10 +622,12 @@ async def admin_list_orders(limit: int = 200, _: str = Depends(require_admin)):
 
 app.include_router(api_router)
 
+_cors_origins_raw = os.environ.get("CORS_ORIGINS", "*")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://gubernurkonten.vercel.app"],
     allow_credentials=False,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
