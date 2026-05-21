@@ -17,7 +17,8 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from sqlalchemy import select
 
-import anthropic
+import google.generativeai as genai
+import asyncio
 from chat_prompt import SYSTEM_PROMPT
 from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
 from db_sqlite import init_db, AsyncSessionLocal, Order, order_to_dict
@@ -118,7 +119,7 @@ def _build_system_with_history(history: List[ChatMessage]) -> str:
 async def chat_endpoint(payload: ChatRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
     _rate_limit(f"chat:{ip}", 20, 60)
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
 
@@ -126,14 +127,10 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     system = _build_system_with_history(payload.history or [])
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        msg = await client.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=1024,
-            system=system,
-            messages=[{"role": "user", "content": payload.message}],
-        )
-        reply_text = msg.content[0].text
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system)
+        response = await model.generate_content_async(payload.message)
+        reply_text = response.text
     except Exception as e:
         logger.exception("LLM chat error")
         raise HTTPException(status_code=502, detail=f"Chat backend error: {str(e)[:200]}")
