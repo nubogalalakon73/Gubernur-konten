@@ -128,8 +128,11 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system)
-        response = await model.generate_content_async(payload.message)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system,
+        )
+        response = await asyncio.to_thread(model.generate_content, payload.message)
         reply_text = response.text
     except Exception as e:
         logger.exception("LLM chat error")
