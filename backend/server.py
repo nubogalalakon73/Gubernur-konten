@@ -17,7 +17,8 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from sqlalchemy import select
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import google.generativeai as genai
+import asyncio
 from chat_prompt import SYSTEM_PROMPT
 from chapters_content import CHAPTERS, get_chapter, get_chapter_meta
 from db_sqlite import init_db, AsyncSessionLocal, Order, order_to_dict
@@ -118,7 +119,7 @@ def _build_system_with_history(history: List[ChatMessage]) -> str:
 async def chat_endpoint(payload: ChatRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
     _rate_limit(f"chat:{ip}", 20, 60)
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
 
@@ -126,15 +127,13 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     system = _build_system_with_history(payload.history or [])
 
     try:
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=session_id,
-            system_message=system,
-        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-
-        user_msg = UserMessage(text=payload.message)
-        reply = await chat.send_message(user_msg)
-        reply_text = reply if isinstance(reply, str) else str(reply)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system,
+        )
+        response = await asyncio.to_thread(model.generate_content, payload.message)
+        reply_text = response.text
     except Exception as e:
         logger.exception("LLM chat error")
         raise HTTPException(status_code=502, detail=f"Chat backend error: {str(e)[:200]}")
@@ -622,10 +621,12 @@ async def admin_list_orders(limit: int = 200, _: str = Depends(require_admin)):
 
 app.include_router(api_router)
 
+_cors_origins_raw = os.environ.get("CORS_ORIGINS", "*")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=False,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
