@@ -85,6 +85,13 @@ export default function Download() {
     window.open(url, "_blank", "noopener");
   };
 
+  const onDownloadEpub = () => {
+    if (!accessToken) return;
+    trackCta(`download-epub-${order?.paket || "unknown"}`, "download");
+    const url = `${API}/download/epub?token=${encodeURIComponent(accessToken)}`;
+    window.open(url, "_blank", "noopener");
+  };
+
   const paketLabel = order?.paket ? (PAKET_LABEL[order.paket] || order.paket) : "";
 
   return (
@@ -116,10 +123,16 @@ export default function Download() {
             <h1 className="font-display text-4xl sm:text-5xl font-black leading-tight">Terima kasih, <span className="text-[#C9920A]">{order?.nama || "Pendukung"}</span>.</h1>
             <p className="mt-4 text-[#F4F0E8]/70 max-w-md mx-auto">Traktiran kopi Anda sudah sampai ☕ Akses {paketLabel} kini siap diunduh.</p>
 
-            <button onClick={onDownload} className="mt-9 btn-primary text-base" data-testid="download-btn">
-              <DownloadIcon className="w-4 h-4" />
-              Unduh PDF
-            </button>
+            <div className="mt-9 flex flex-wrap gap-3 justify-center">
+              <button onClick={onDownload} className="btn-primary text-base" data-testid="download-btn">
+                <DownloadIcon className="w-4 h-4" />
+                Unduh PDF
+              </button>
+              <button onClick={onDownloadEpub} className="btn-gold text-base" data-testid="download-epub-btn">
+                <DownloadIcon className="w-4 h-4" />
+                Unduh EPUB
+              </button>
+            </div>
 
             <div className="mt-7 grid sm:grid-cols-2 gap-3 text-left">
               {order?.paket === "full" && (

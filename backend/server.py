@@ -590,6 +590,44 @@ async def download_pdf(token: str = "", request: Request = None):
     )
 
 
+@api_router.get("/download/epub")
+async def download_epub(token: str = "", request: Request = None):
+    """Public (token-gated): stream the EPUB file for the buyer's paket."""
+    if request is not None:
+        ip = request.client.host if request.client else "unknown"
+        _rate_limit(f"download:{ip}", 30, 600)
+    if not token:
+        raise HTTPException(status_code=400, detail="Token diperlukan")
+
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(select(Order).where(Order.access_token == token))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="Token tidak ditemukan")
+    if o.status != "success":
+        raise HTTPException(status_code=403, detail="Order belum lunas")
+
+    if o.paket == "full":
+        fname = "gubernur-konten-full.epub"
+        display = "Gubernur Konten — Full Buku.epub"
+    else:
+        fname = f"{o.paket}.epub"
+        n = o.paket.split("-", 1)[1] if "-" in o.paket else "?"
+        display = f"Gubernur Konten — Bab {n}.epub"
+
+    fpath = FILES_DIR / fname
+    if not fpath.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=f"File '{fname}' belum tersedia di server. Hubungi admin di WA 0899-855-3333.",
+        )
+    return FileResponse(
+        path=str(fpath),
+        media_type="application/epub+zip",
+        filename=display,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
 @api_router.get("/order-status")
 async def order_status(order_id: str = "", email: str = ""):
     """Lookup an order by id + email. Returns status + access_token if successful.
