@@ -48,6 +48,14 @@ def _finish_url(order_id: str, email: str) -> str:
     return f"{base}/download?{params}"
 
 
+def _notification_url() -> str:
+    """URL backend untuk Midtrans mengirim webhook status pembayaran."""
+    base = os.environ.get("RAILWAY_URL", "").rstrip("/")
+    if not base:
+        return ""
+    return f"{base}/api/midtrans-webhook"
+
+
 # ---------- Snap API ----------
 async def create_snap_transaction(order_id: str, gross_amount: int, item_name: str,
                                    nama: str, email: str, whatsapp: str) -> dict:
@@ -72,6 +80,9 @@ async def create_snap_transaction(order_id: str, gross_amount: int, item_name: s
             "finish": _finish_url(order_id, email),
         },
     }
+    notif_url = _notification_url()
+    if notif_url:
+        payload["notification_url"] = notif_url
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
