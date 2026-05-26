@@ -40,6 +40,14 @@ def is_valid_package(paket: str) -> bool:
     return paket in PACKAGE_PRICES
 
 
+def _finish_url(order_id: str, email: str) -> str:
+    """URL Midtrans redirect ke setelah pembayaran selesai (hosted payment page)."""
+    import urllib.parse
+    base = os.environ.get("FRONTEND_URL", "https://gubernur-konten.vercel.app").rstrip("/")
+    params = urllib.parse.urlencode({"order_id": order_id, "email": email})
+    return f"{base}/download?{params}"
+
+
 # ---------- Snap API ----------
 async def create_snap_transaction(order_id: str, gross_amount: int, item_name: str,
                                    nama: str, email: str, whatsapp: str) -> dict:
@@ -60,6 +68,9 @@ async def create_snap_transaction(order_id: str, gross_amount: int, item_name: s
             {"id": order_id, "price": gross_amount, "quantity": 1, "name": item_name[:50]}
         ],
         "credit_card": {"secure": True},
+        "callbacks": {
+            "finish": _finish_url(order_id, email),
+        },
     }
     headers = {
         "Accept": "application/json",
