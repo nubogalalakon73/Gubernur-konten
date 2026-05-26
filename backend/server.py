@@ -539,11 +539,12 @@ async def create_payment(payload: CreatePaymentRequest, request: Request):
 
 @api_router.post("/midtrans-webhook")
 async def midtrans_webhook(request: Request):
-    """Receive Midtrans HTTP notification, verify signature, update order, generate access_token on success."""
+    """Receive Midtrans HTTP notification. ALWAYS return 200 — Midtrans marks non-2xx as failed."""
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        logger.warning("Webhook: invalid JSON body")
+        return {"ok": False, "reason": "invalid_json"}
 
     order_id = str(body.get("order_id", ""))
     status_code = str(body.get("status_code", ""))
@@ -554,70 +555,81 @@ async def midtrans_webhook(request: Request):
     payment_type = body.get("payment_type", "")
     transaction_id = body.get("transaction_id", "")
 
+    logger.info(f"Webhook received order={order_id} tx_status={transaction_status} payment={payment_type} status_code={status_code} amount={gross_amount}")
+
+    # Signature check — return 200 but don't process if invalid
     if not verify_signature(order_id, status_code, gross_amount, signature_key):
-        logger.warning(f"Webhook signature mismatch for order {order_id}")
-        raise HTTPException(status_code=403, detail="Invalid signature")
+        logger.warning(f"Webhook signature mismatch for order={order_id} — ignored")
+        return {"ok": False, "reason": "signature_mismatch"}
 
     internal_status = map_status(transaction_status, fraud_status)
 
-    async with AsyncSessionLocal() as session:
-        o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
-        if not o:
-            raise HTTPException(status_code=404, detail="Order not found")
+    try:
+        async with AsyncSessionLocal() as session:
+            o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+            if not o:
+                logger.warning(f"Webhook: order not found order={order_id}")
+                return {"ok": False, "reason": "order_not_found"}
 
-        # Validate gross_amount matches our recorded harga (defense against tampering)
-        try:
-            paid_amount = int(float(gross_amount))
-        except ValueError:
-            paid_amount = -1
-        if paid_amount != o.harga and internal_status == "success":
-            logger.error(f"Amount mismatch order={order_id} expected={o.harga} got={paid_amount}")
-            o.status = "failure"
+            # Amount validation — log mismatch but don't reject (GoPay may round)
+            try:
+                paid_amount = int(round(float(gross_amount)))
+            except (ValueError, TypeError):
+                paid_amount = -1
+            if paid_amount != o.harga and internal_status == "success":
+                logger.error(f"Amount mismatch order={order_id} expected={o.harga} got={paid_amount} ({gross_amount}) — marking failure")
+                o.status = "failure"
+                o.raw_notification = json.dumps(body)
+                await session.commit()
+                return {"ok": False, "reason": "amount_mismatch", "expected": o.harga, "got": paid_amount}
+
+            already_paid = o.paid_at is not None  # check before updating
+
+            o.status = internal_status
+            o.payment_type = payment_type or o.payment_type
+            o.midtrans_transaction_id = transaction_id or o.midtrans_transaction_id
             o.raw_notification = json.dumps(body)
+
+            if internal_status == "success":
+                if not o.access_token:
+                    o.access_token = secrets.token_urlsafe(24)
+                if not o.paid_at:
+                    o.paid_at = datetime.now(timezone.utc)
+
             await session.commit()
-            raise HTTPException(status_code=400, detail="Amount mismatch")
+            access_token = o.access_token
+            paket = o.paket
+            nama = o.nama
+            email_buyer = o.email
+            harga = o.harga
+            is_new_success = internal_status == "success" and not already_paid
 
-        o.status = internal_status
-        o.payment_type = payment_type or o.payment_type
-        o.midtrans_transaction_id = transaction_id or o.midtrans_transaction_id
-        o.raw_notification = json.dumps(body)
+        logger.info(f"Webhook handled order={order_id} status={internal_status} is_new_success={is_new_success}")
 
-        already_paid = o.status == "success" and o.paid_at is not None
-        if internal_status == "success":
-            if not o.access_token:
-                o.access_token = secrets.token_urlsafe(24)
-            if not o.paid_at:
-                o.paid_at = datetime.now(timezone.utc)
+        if is_new_success:
+            import urllib.parse
+            frontend = os.environ.get("FRONTEND_URL", "https://gubernur-konten.vercel.app").rstrip("/")
+            download_link = f"{frontend}/download?{urllib.parse.urlencode({'order_id': order_id, 'email': email_buyer})}"
+            paket_label = {
+                "full": "Full Buku Gubernur Konten (Bab 1–7)",
+                "bab-2": "Bab 2 — Sang Pionir",
+                "bab-3": "Bab 3 — Gelombang Kedua",
+                "bab-4": "Bab 4 — Tujuh Dakwaan",
+                "bab-5": "Bab 5 — Pembelaan & Epistemologi",
+                "bab-6": "Bab 6 — Sintesis",
+                "bab-7": "Bab 7 — Penutup",
+            }.get(paket, paket)
+            harga_fmt = f"Rp {harga:,.0f}".replace(",", ".")
+            html = _payment_success_email_html(nama, paket_label, harga_fmt, download_link, order_id)
+            await send_email(email_buyer, f"✅ Pembayaran Berhasil — {paket_label}", html)
+            logger.info(f"Email notifikasi terkirim ke {email_buyer} order={order_id}")
 
-        await session.commit()
-        access_token = o.access_token
-        paket = o.paket
-        nama = o.nama
-        email_buyer = o.email
-        harga = o.harga
-        is_new_success = internal_status == "success" and not already_paid
+        return {"ok": True, "order_id": order_id, "status": internal_status}
 
-    logger.info(f"Webhook handled order={order_id} status={internal_status}")
-
-    if is_new_success:
-        import urllib.parse
-        frontend = os.environ.get("FRONTEND_URL", "https://gubernur-konten.vercel.app").rstrip("/")
-        download_link = f"{frontend}/download?{urllib.parse.urlencode({'order_id': order_id, 'email': email_buyer})}"
-        paket_label = {
-            "full": "Full Buku Gubernur Konten (Bab 1–7)",
-            "bab-2": "Bab 2 — Sang Pionir",
-            "bab-3": "Bab 3 — Gelombang Kedua",
-            "bab-4": "Bab 4 — Tujuh Dakwaan",
-            "bab-5": "Bab 5 — Pembelaan & Epistemologi",
-            "bab-6": "Bab 6 — Sintesis",
-            "bab-7": "Bab 7 — Penutup",
-        }.get(paket, paket)
-        harga_fmt = f"Rp {harga:,.0f}".replace(",", ".")
-        html = _payment_success_email_html(nama, paket_label, harga_fmt, download_link, order_id)
-        await send_email(email_buyer, f"✅ Pembayaran Berhasil — {paket_label}", html)
-        logger.info(f"Email notifikasi terkirim ke {email_buyer} order={order_id}")
-
-    return {"ok": True, "order_id": order_id, "status": internal_status, "access_token": access_token, "paket": paket}
+    except Exception as e:
+        logger.exception(f"Webhook processing error order={order_id}: {e}")
+        # Still return 200 so Midtrans doesn't retry indefinitely
+        return {"ok": False, "reason": "internal_error", "detail": str(e)[:100]}
 
 
 @api_router.post("/resend-download")
