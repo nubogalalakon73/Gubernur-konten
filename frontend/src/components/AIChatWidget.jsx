@@ -1,10 +1,72 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import axios from "axios";
 import { greeting, intentOf, respond, INITIAL_QUICK_REPLIES } from "@/lib/chatBot";
 import { onOpenChat } from "@/lib/chatEvents";
-import { trackCta, API } from "@/lib/api";
+import { trackCta, API, WA_LINK } from "@/lib/api";
+
+function ResendForm({ onDone, onWA }) {
+  const [email, setEmail] = useState("");
+  const [orderId, setOrderId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null); // { ok, message }
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data } = await axios.post(`${API}/resend-download`, {
+        email: email.trim().toLowerCase(),
+        order_id: orderId.trim().toUpperCase(),
+      });
+      setResult({ ok: true, message: data.message });
+      setTimeout(() => onDone(data.message), 2000);
+    } catch (err) {
+      const msg = err?.response?.data?.detail || "Gagal mengirim email. Coba lagi atau hubungi admin.";
+      setResult({ ok: false, message: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className={`rounded-xl p-4 border text-sm ${result.ok ? "bg-[#1f3a2a] border-[#25D366]/30 text-[#25D366]" : "bg-[#2a0d10] border-[#B8211A]/30 text-[#F4F0E8]/80"}`}>
+        {result.ok ? <CheckCircle2 className="w-4 h-4 inline mr-2" /> : <AlertCircle className="w-4 h-4 inline mr-2" />}
+        {result.message}
+        {!result.ok && (
+          <button onClick={onWA} className="block mt-3 text-xs underline text-[#C9920A]">Hubungi Admin WA →</button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-[#131A22] border border-white/10 rounded-xl p-4 space-y-3">
+      <p className="text-xs text-[#F4F0E8]/60 leading-relaxed">Masukkan email dan Order ID pembelian Anda. Kami kirim ulang link download sekarang.</p>
+      <input
+        type="email" required value={email} onChange={e => setEmail(e.target.value)}
+        placeholder="Email pembelian (contoh: anda@gmail.com)"
+        className="w-full bg-[#0B0F14] border border-white/15 rounded-lg px-3 py-2 text-sm text-[#F4F0E8] placeholder:text-[#F4F0E8]/30 focus:outline-none focus:border-[#C9920A]/60"
+      />
+      <input
+        type="text" required value={orderId} onChange={e => setOrderId(e.target.value)}
+        placeholder="Order ID (contoh: GK-ABC123DEF456)"
+        className="w-full bg-[#0B0F14] border border-white/15 rounded-lg px-3 py-2 text-sm text-[#F4F0E8] placeholder:text-[#F4F0E8]/30 focus:outline-none focus:border-[#C9920A]/60"
+      />
+      <button type="submit" disabled={loading}
+        className="w-full bg-[#B8211A] hover:bg-[#9a1c16] text-[#F4F0E8] text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+        {loading ? "Mengirim..." : "📧 Kirim Link Download"}
+      </button>
+      <button type="button" onClick={onWA}
+        className="w-full text-xs text-[#F4F0E8]/40 hover:text-[#25D366] transition-colors py-1">
+        Atau hubungi Admin WA →
+      </button>
+    </form>
+  );
+}
 
 const SESSION_KEY = "gk_chat_session_id";
 
@@ -12,6 +74,7 @@ export default function AIChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [quickReplies, setQuickReplies] = useState(INITIAL_QUICK_REPLIES);
+  const [showResendForm, setShowResendForm] = useState(false);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
@@ -69,6 +132,9 @@ export default function AIChatWidget() {
     "select-full",
     "pay-transfer",
     "pay-qris",
+    "download-error",
+    "resend-email-form",
+    "download-wa",
   ]);
 
   const handleAction = useCallback((action) => {
@@ -86,6 +152,8 @@ export default function AIChatWidget() {
       setTimeout(() => {
         window.open(action.url, "_blank", "noopener");
       }, 500);
+    } else if (action.type === "show-resend-form") {
+      setTimeout(() => setShowResendForm(true), 500);
     }
   }, [navigate]);
 
@@ -231,6 +299,22 @@ export default function AIChatWidget() {
                 </div>
               </div>
             ))}
+
+            {showResendForm && (
+              <div className="max-w-[95%]">
+                <ResendForm
+                  onDone={(msg) => {
+                    setShowResendForm(false);
+                    setMessages(m => [...m, { role: "bot", text: `✅ ${msg}\n\nCek inbox email Anda (termasuk folder Spam/Promosi). Link download berlaku selamanya.` }]);
+                    setQuickReplies(INITIAL_QUICK_REPLIES);
+                  }}
+                  onWA={() => {
+                    setShowResendForm(false);
+                    window.open(WA_LINK("Halo Admin, saya gagal download file setelah bayar. Mohon bantuannya."), "_blank", "noopener");
+                  }}
+                />
+              </div>
+            )}
 
             {typing && (
               <div className="max-w-[60%]" data-testid="ai-typing">
