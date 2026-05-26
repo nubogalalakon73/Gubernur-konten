@@ -619,7 +619,62 @@ async def midtrans_webhook(request: Request):
     return {"ok": True, "order_id": order_id, "status": internal_status, "access_token": access_token, "paket": paket}
 
 
-@api_router.get("/verify-access")
+@api_router.post("/resend-download")
+async def resend_download(request: Request):
+    """Kirim ulang email download ke pembeli yang gagal menerima link."""
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"resend:{ip}", 3, 600)  # max 3x per 10 menit per IP
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    email_input = (body.get("email") or "").strip().lower()
+    order_id_input = (body.get("order_id") or "").strip().upper()
+
+    if not email_input or not order_id_input:
+        raise HTTPException(status_code=400, detail="Email dan Order ID wajib diisi")
+
+    async with AsyncSessionLocal() as session:
+        o = (await session.execute(
+            select(Order).where(Order.id == order_id_input)
+        )).scalar_one_or_none()
+
+    if not o:
+        raise HTTPException(status_code=404, detail="Order ID tidak ditemukan. Periksa kembali atau hubungi admin via WhatsApp.")
+
+    if o.email != email_input:
+        raise HTTPException(status_code=403, detail="Email tidak cocok dengan Order ID ini. Periksa kembali atau hubungi admin via WhatsApp.")
+
+    if o.status != "success":
+        raise HTTPException(status_code=402, detail=f"Pembayaran untuk order ini belum terkonfirmasi (status: {o.status}). Hubungi admin via WhatsApp jika sudah membayar.")
+
+    # Kirim ulang email
+    import urllib.parse
+    frontend = os.environ.get("FRONTEND_URL", "https://gubernur-konten.vercel.app").rstrip("/")
+    download_link = f"{frontend}/download?{urllib.parse.urlencode({'order_id': o.id, 'email': o.email})}"
+    paket_label = {
+        "full": "Full Buku Gubernur Konten (Bab 1–7)",
+        "bab-2": "Bab 2 — Sang Pionir",
+        "bab-3": "Bab 3 — Gelombang Kedua",
+        "bab-4": "Bab 4 — Tujuh Dakwaan",
+        "bab-5": "Bab 5 — Pembelaan & Epistemologi",
+        "bab-6": "Bab 6 — Sintesis",
+        "bab-7": "Bab 7 — Penutup",
+    }.get(o.paket, o.paket)
+    harga_fmt = f"Rp {o.harga:,.0f}".replace(",", ".")
+    html = _payment_success_email_html(o.nama, paket_label, harga_fmt, download_link, o.id)
+    sent = await send_email(o.email, f"📥 Link Download Anda — {paket_label}", html)
+
+    if not sent:
+        raise HTTPException(status_code=503, detail="Gagal mengirim email. Hubungi admin via WhatsApp: 0899-855-3333")
+
+    logger.info(f"Resend download email to {o.email} order={o.id}")
+    return {"ok": True, "message": f"Email berhasil dikirim ke {o.email}", "download_link": download_link}
+
+
+
 async def verify_access(token: str = ""):
     """Public: verify an access token and return order info if valid + paid."""
     if not token:

@@ -41,6 +41,7 @@ function detectIntent(textRaw) {
   if (/(bayar|transfer|qris|bca|mandiri|dana|gopay|ovo)/.test(t)) return "bayar";
   if (/(terima kasih|makasih|thx|thanks|oke|ok)/.test(t)) return "terimakasih";
   if (/(halo|hai|hi|hello|assalamualaikum|pagi|siang|sore|malam)/.test(t)) return "salam";
+  if (/(gagal.*(download|unduh|donlot)|tidak.*(bisa|dapat).*(download|unduh|file|pdf|epub)|link.*(mati|error|rusak|tidak.*kerja)|email.*tidak.*(terima|datang|masuk)|belum.*terima.*file|tidak.*dapat.*file|download.*error|resend|kirim.ulang)/.test(t)) return "download-error";
   return "fallback";
 }
 
@@ -229,6 +230,30 @@ export function respond(intent, ctx = {}) {
       return {
         text: "Tentu! Pilih metode pembayaran:",
         quickReplies: QR_PAYMENT,
+      };
+
+    case "download-error":
+      return {
+        text: "Maaf Anda mengalami kendala mengunduh 🙏\n\nAda dua cara yang bisa saya bantu:\n\n📧 *Kirim ulang ke Email* — masukkan email & Order ID, kami kirim link download langsung ke inbox Anda.\n\n💬 *Hubungi Admin WA* — tim kami kirimkan file secara manual dalam 5–10 menit.",
+        quickReplies: [
+          { id: "dl-email", label: "📧 Kirim Ulang ke Email Saya", intent: "resend-email-form" },
+          { id: "dl-wa", label: "💬 Hubungi Admin WhatsApp", intent: "download-wa" },
+          QR_BACK,
+        ],
+      };
+
+    case "resend-email-form":
+      return {
+        text: "Baik, saya bantu kirim ulang link download ke email Anda.",
+        quickReplies: [],
+        action: { type: "show-resend-form" },
+      };
+
+    case "download-wa":
+      return {
+        text: "Membuka WhatsApp Admin… Sampaikan Order ID Anda agar admin bisa cek langsung.",
+        quickReplies: INITIAL_QUICK_REPLIES,
+        action: { type: "open-wa", url: WA_LINK("Halo Admin, saya gagal download file setelah bayar. Mohon bantuannya.") },
       };
 
     case "terimakasih":
