@@ -242,6 +242,73 @@ async def send_email(to: str, subject: str, html: str) -> bool:
         return False
 
 
+def _payment_success_email_html(nama: str, paket_label: str, harga: str, download_link: str, order_id: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0B0F14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B0F14;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#111720;border:1px solid rgba(201,146,10,0.25);border-radius:12px;overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="background:#B8211A;padding:24px 32px;">
+          <p style="margin:0;color:#F4F0E8;font-size:12px;letter-spacing:0.15em;text-transform:uppercase;opacity:0.8;">Gubernur Konten</p>
+          <h1 style="margin:8px 0 0;color:#F4F0E8;font-size:24px;font-weight:800;">Pembayaran Berhasil ✅</h1>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 16px;color:#F4F0E8;font-size:16px;">Halo <strong>{nama}</strong>,</p>
+          <p style="margin:0 0 24px;color:rgba(244,240,232,0.75);line-height:1.7;font-size:15px;">
+            Terima kasih! Pembayaran Anda telah dikonfirmasi. Akses ebook Anda sudah siap diunduh.
+          </p>
+          <!-- Order Summary -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(201,146,10,0.08);border:1px solid rgba(201,146,10,0.2);border-radius:8px;margin-bottom:28px;">
+            <tr><td style="padding:20px 24px;">
+              <p style="margin:0 0 12px;color:#C9920A;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;">Detail Pesanan</p>
+              <table width="100%" cellpadding="4" cellspacing="0">
+                <tr>
+                  <td style="color:rgba(244,240,232,0.6);font-size:13px;">Order ID</td>
+                  <td style="color:#F4F0E8;font-size:13px;text-align:right;font-family:monospace;">{order_id}</td>
+                </tr>
+                <tr>
+                  <td style="color:rgba(244,240,232,0.6);font-size:13px;">Paket</td>
+                  <td style="color:#F4F0E8;font-size:13px;text-align:right;">{paket_label}</td>
+                </tr>
+                <tr>
+                  <td style="color:rgba(244,240,232,0.6);font-size:13px;">Total</td>
+                  <td style="color:#C9920A;font-size:14px;text-align:right;font-weight:700;">{harga}</td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+          <!-- CTA Button -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+            <tr><td align="center">
+              <a href="{download_link}" style="display:inline-block;background:#B8211A;color:#F4F0E8;padding:16px 36px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.05em;border-radius:6px;">
+                📥 Unduh PDF & EPUB Sekarang
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0 0 8px;color:rgba(244,240,232,0.55);font-size:12px;text-align:center;">
+            Atau buka link ini di browser:
+          </p>
+          <p style="margin:0 0 28px;word-break:break-all;font-size:11px;color:#C9920A;font-family:monospace;text-align:center;">{download_link}</p>
+          <hr style="border:none;border-top:1px solid rgba(244,240,232,0.1);margin:0 0 24px;">
+          <p style="margin:0;color:rgba(244,240,232,0.45);font-size:12px;line-height:1.6;">
+            Simpan email ini. Link download bisa digunakan kapan saja.<br>
+            Pertanyaan? Balas email ini atau hubungi kami via WhatsApp.<br><br>
+            Salam,<br>
+            <strong style="color:rgba(244,240,232,0.7);">Tim Gubernur Konten</strong><br>
+            <span>Didi Subandi &amp; Yully Ambarsih Ekawardhani</span>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
 def _token_email_html(name: str, chapter_label: str, link: str) -> str:
     return f"""
     <div style="font-family: -apple-system, sans-serif; background: #0B0F14; color: #F4F0E8; padding: 32px;">
@@ -514,6 +581,7 @@ async def midtrans_webhook(request: Request):
         o.midtrans_transaction_id = transaction_id or o.midtrans_transaction_id
         o.raw_notification = json.dumps(body)
 
+        already_paid = o.status == "success" and o.paid_at is not None
         if internal_status == "success":
             if not o.access_token:
                 o.access_token = secrets.token_urlsafe(24)
@@ -523,8 +591,31 @@ async def midtrans_webhook(request: Request):
         await session.commit()
         access_token = o.access_token
         paket = o.paket
+        nama = o.nama
+        email_buyer = o.email
+        harga = o.harga
+        is_new_success = internal_status == "success" and not already_paid
 
     logger.info(f"Webhook handled order={order_id} status={internal_status}")
+
+    if is_new_success:
+        import urllib.parse
+        frontend = os.environ.get("FRONTEND_URL", "https://gubernur-konten.vercel.app").rstrip("/")
+        download_link = f"{frontend}/download?{urllib.parse.urlencode({'order_id': order_id, 'email': email_buyer})}"
+        paket_label = {
+            "full": "Full Buku Gubernur Konten (Bab 1–7)",
+            "bab-2": "Bab 2 — Sang Pionir",
+            "bab-3": "Bab 3 — Gelombang Kedua",
+            "bab-4": "Bab 4 — Tujuh Dakwaan",
+            "bab-5": "Bab 5 — Pembelaan & Epistemologi",
+            "bab-6": "Bab 6 — Sintesis",
+            "bab-7": "Bab 7 — Penutup",
+        }.get(paket, paket)
+        harga_fmt = f"Rp {harga:,.0f}".replace(",", ".")
+        html = _payment_success_email_html(nama, paket_label, harga_fmt, download_link, order_id)
+        await send_email(email_buyer, f"✅ Pembayaran Berhasil — {paket_label}", html)
+        logger.info(f"Email notifikasi terkirim ke {email_buyer} order={order_id}")
+
     return {"ok": True, "order_id": order_id, "status": internal_status, "access_token": access_token, "paket": paket}
 
 
