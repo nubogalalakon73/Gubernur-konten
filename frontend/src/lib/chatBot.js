@@ -10,6 +10,7 @@ export const INITIAL_QUICK_REPLIES = [
   { id: "qr-bab1", label: "📖 Baca Bab 1 Gratis", intent: "bab1" },
   { id: "qr-isi", label: "💬 Tanya Isi Buku", intent: "tentang" },
   { id: "qr-harga", label: "💳 Lihat Harga", intent: "harga" },
+  { id: "qr-paid", label: "✅ Sudah Bayar, Cari Link", intent: "paid-no-link" },
   { id: "qr-wa", label: "📲 Konsultasi WhatsApp", intent: "wa" },
 ];
 
@@ -41,6 +42,11 @@ function detectIntent(textRaw) {
   if (/(bayar|transfer|qris|bca|mandiri|dana|gopay|ovo)/.test(t)) return "bayar";
   if (/(terima kasih|makasih|thx|thanks|oke|ok)/.test(t)) return "terimakasih";
   if (/(halo|hai|hi|hello|assalamualaikum|pagi|siang|sore|malam)/.test(t)) return "salam";
+  if (
+    /(sudah bayar|telah bayar|udah bayar|bayar sukses|bayar berhasil|pembayaran berhasil|sudah transfer)/.test(t) &&
+    /(link|download|donlot|unduh|file|pdf|epub|email)/.test(t)
+  ) return "paid-no-link";
+  if (/(mana link|link mana|mana donlot|dimana link|link.*tidak ada|link.*belum ada)/.test(t)) return "paid-no-link";
   if (/(gagal.*(download|unduh|donlot)|tidak.*(bisa|dapat).*(download|unduh|file|pdf|epub)|link.*(mati|error|rusak|tidak.*kerja)|email.*tidak.*(terima|datang|masuk)|belum.*terima.*file|tidak.*dapat.*file|download.*error|resend|kirim.ulang)/.test(t)) return "download-error";
   return "fallback";
 }
@@ -230,6 +236,13 @@ export function respond(intent, ctx = {}) {
       return {
         text: "Tentu! Pilih metode pembayaran:",
         quickReplies: QR_PAYMENT,
+      };
+
+        case "paid-no-link":
+      return {
+        text: "Saya bantu sekarang 🙏\n\nSiapkan:\n• Email yang dipakai saat checkout\n• Order ID (format: GK-XXXXXXXXXXXX) — ada di notifikasi Midtrans\n\nJuga cek folder *Spam / Promosi* di email dulu.",
+        quickReplies: [],
+        action: { type: "show-resend-form" },
       };
 
     case "download-error":
