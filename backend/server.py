@@ -786,17 +786,34 @@ async def download_epub(token: str = "", request: Request = None):
         headers={"Cache-Control": "private, no-store"},
     )
 
-
 @api_router.get("/order-status")
 async def order_status(order_id: str = "", email: str = ""):
-    """Lookup an order by id + email. Returns status + access_token if successful.
-    Email match is required to prevent enumeration of access tokens."""
     if not order_id or not email:
         raise HTTPException(status_code=400, detail="order_id dan email diperlukan")
     async with AsyncSessionLocal() as session:
         o = (await session.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
     if not o or o.email.lower() != email.strip().lower():
         raise HTTPException(status_code=404, detail="Order tidak ditemukan")
+
+    if o.status == "pending":
+        try:
+            from midtrans import get_transaction_status
+            mt_data = await get_transaction_status(order_id)
+            mt_status = map_status(mt_data.get("transaction_status", ""), mt_data.get("fraud_status", ""))
+            if mt_status == "success":
+                async with AsyncSessionLocal() as session2:
+                    o2 = (await session2.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+                    if o2 and o2.status != "success":
+                        o2.status = "success"
+                        if not o2.access_token:
+                            o2.access_token = secrets.token_urlsafe(24)
+                        if not o2.paid_at:
+                            o2.paid_at = datetime.now(timezone.utc)
+                        await session2.commit()
+                        o = o2
+        except Exception as e:
+            logger.warning(f"Midtrans direct check failed {order_id}: {e}")
+
     return {
         "order_id": o.id,
         "status": o.status,
@@ -806,7 +823,6 @@ async def order_status(order_id: str = "", email: str = ""):
         "access_token": o.access_token if o.status == "success" else None,
         "paid_at": o.paid_at.isoformat() if o.paid_at else None,
     }
-
 
 # ---------- Admin: list orders ----------
 @api_router.get("/admin/orders")
