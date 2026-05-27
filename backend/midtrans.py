@@ -130,3 +130,15 @@ def map_status(transaction_status: str, fraud_status: Optional[str] = None) -> s
     if t in ("failure",):
         return "failure"
     return t or "unknown"
+async def get_transaction_status(order_id: str) -> dict:
+    """Cek status transaksi langsung ke Midtrans (bypass webhook)."""
+    base = "https://api.midtrans.com" if _is_production() else "https://api.sandbox.midtrans.com"
+    url = f"{base}/v2/{order_id}/status"
+    headers = {"Authorization": _auth_header(), "Accept": "application/json"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, headers=headers)
+    if r.status_code == 404:
+        return {}
+    if r.status_code >= 400:
+        return {}
+    return r.json()
