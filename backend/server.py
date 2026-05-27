@@ -731,8 +731,8 @@ async def download_pdf(token: str = "", request: Request = None):
         display = "Gubernur Konten — Full Buku.pdf"
     else:
         # "bab-2" .. "bab-7"
-        fname = f"{o.paket}.pdf"
         n = o.paket.split("-", 1)[1] if "-" in o.paket else "?"
+        fname = f"GubernurKonten_Bab{n}.pdf"
         display = f"Gubernur Konten — Bab {n}.pdf"
 
     fpath = FILES_DIR / fname
@@ -769,8 +769,8 @@ async def download_epub(token: str = "", request: Request = None):
         fname = "gubernur-konten-full.epub"
         display = "Gubernur Konten — Full Buku.epub"
     else:
-        fname = f"{o.paket}.epub"
         n = o.paket.split("-", 1)[1] if "-" in o.paket else "?"
+        fname = f"GubernurKonten_Bab{n}.epub"
         display = f"Gubernur Konten — Bab {n}.epub"
 
     fpath = FILES_DIR / fname
