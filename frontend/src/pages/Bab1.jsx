@@ -152,7 +152,12 @@ export default function Bab1() {
           </div>
           <div className="mt-8 gk-divider w-32" />
         </div>
-
+{/* Epigraph */}
+{BAB1.epigraph && (
+  <blockquote className="my-10 px-6 py-5 border-l-2 border-[#B8211A] bg-white/[0.02] italic text-[#F4F0E8]/70 font-display text-base sm:text-lg leading-relaxed whitespace-pre-line">
+    {BAB1.epigraph}
+  </blockquote>
+)}
         {/* Body */}
         <div className="reader-body">
           {BAB1.sections.map((s, i) => (
