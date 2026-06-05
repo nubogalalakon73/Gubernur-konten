@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin/dashboard
+Disallow: /download
+Disallow: /checkout
 
 Sitemap: https://gubernurkonten.vercel.app/sitemap.xml
